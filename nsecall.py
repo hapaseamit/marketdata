@@ -1,4 +1,6 @@
+import json
 import os
+import sys
 import threading
 import time
 from datetime import datetime
@@ -48,13 +50,13 @@ def bankniftyfutcall(base_url, rest_url, call_headers, csv_columns):
             print(response.status_code)
             continue
 
-        status = response.json()["marketStatus"]["marketStatusMessage"]
-        if status != "Market is Open":
+        status = json.loads(response.content)["marketStatus"]["marketOpenOrClose"]
+        if status != "Open":
             print(status)
             continue
 
         try:
-            record = response.json()["data"]
+            record = json.loads(response.content)
         except Exception as e:
             print(e)
             continue
@@ -64,15 +66,16 @@ def bankniftyfutcall(base_url, rest_url, call_headers, csv_columns):
             continue
 
         turnover = 0
-        for data in record:
+        for data in record["data"]:
             turnover = turnover + int(data["totalTurnover"])
 
         df = pd.read_csv(csv, skip_blank_lines=True)
         if turnover in df["bankniftyfuttotalTurnover"].values:
             continue
 
-        if response.json()["timestamp"][12:17] in df["time"].values:
-            df = df[df["time"] != response.json()["timestamp"][12:17]]
+        timestamp = json.loads(response.content)["timestamp"][12:17]
+        if timestamp in df["time"].values:
+            df = df[df["time"] != timestamp]
             df_cleaned = df.dropna(how="all")
             df_cleaned.to_csv(csv, index=False)
 
@@ -88,12 +91,7 @@ def bankniftyfutcall(base_url, rest_url, call_headers, csv_columns):
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
         newline = str(
-            "\n"
-            + str(turnover)
-            + ","
-            + str(diff)
-            + ","
-            + str(response.json()["timestamp"][12:17])
+            "\n" + str(turnover) + "," + str(diff) + "," + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -136,13 +134,13 @@ def niftyfutcall(base_url, rest_url, call_headers, csv_columns):
             print(response.status_code)
             continue
 
-        status = response.json()["marketStatus"]["marketStatusMessage"]
-        if status != "Market is Open":
+        status = json.loads(response.content)["marketStatus"]["marketOpenOrClose"]
+        if status != "Open":
             print(status)
             continue
 
         try:
-            record = response.json()["data"]
+            record = json.loads(response.content)
         except Exception as e:
             print(e)
             continue
@@ -152,15 +150,16 @@ def niftyfutcall(base_url, rest_url, call_headers, csv_columns):
             continue
 
         turnover = 0
-        for data in record:
+        for data in record["data"]:
             turnover = turnover + int(data["totalTurnover"])
 
         df = pd.read_csv(csv, skip_blank_lines=True)
         if turnover in df["niftyfuttotalTurnover"].values:
             continue
 
-        if response.json()["timestamp"][12:17] in df["time"].values:
-            df = df[df["time"] != response.json()["timestamp"][12:17]]
+        timestamp = json.loads(response.content)["timestamp"][12:17]
+        if timestamp in df["time"].values:
+            df = df[df["time"] != timestamp]
             df_cleaned = df.dropna(how="all")
             df_cleaned.to_csv(csv, index=False)
 
@@ -176,12 +175,7 @@ def niftyfutcall(base_url, rest_url, call_headers, csv_columns):
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
         newline = str(
-            "\n"
-            + str(turnover)
-            + ","
-            + str(diff)
-            + ","
-            + str(response.json()["timestamp"][12:17])
+            "\n" + str(turnover) + "," + str(diff) + "," + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -193,7 +187,7 @@ def niftyfutcall(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def niftycall(base_url, rest_url, call_headers, csv_columns):
+def niftyopt(base_url, rest_url, call_headers, csv_columns):
     """
     This module contains code for fetching and processing
     option chain data for Bank Nifty.
@@ -224,13 +218,13 @@ def niftycall(base_url, rest_url, call_headers, csv_columns):
             print(response.status_code)
             continue
 
-        status = response.json()["marketStatus"]["marketStatusMessage"]
-        if status != "Market is Open":
+        status = json.loads(response.content)["marketStatus"]["marketOpenOrClose"]
+        if status != "Open":
             print(status)
             continue
 
         try:
-            record = response.json()["data"]
+            record = json.loads(response.content)
         except Exception as e:
             print(e)
             continue
@@ -240,15 +234,17 @@ def niftycall(base_url, rest_url, call_headers, csv_columns):
             continue
 
         turnover = 0
-        for data in record:
+        for data in record["data"]:
             turnover = turnover + int(data["totalTurnover"])
 
         df = pd.read_csv(csv, skip_blank_lines=True)
         if turnover in df["niftytotalTurnover"].values:
             continue
 
-        if response.json()["timestamp"][12:17] in df["time"].values:
-            df = df[df["time"] != response.json()["timestamp"][12:17]]
+        timestamp = json.loads(response.content)["timestamp"][12:17]
+        if timestamp in df["time"].values:
+
+            df = df[df["time"] != timestamp]
             df_cleaned = df.dropna(how="all")
             df_cleaned.to_csv(csv, index=False)
 
@@ -264,12 +260,7 @@ def niftycall(base_url, rest_url, call_headers, csv_columns):
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
         newline = str(
-            "\n"
-            + str(turnover)
-            + ","
-            + str(diff)
-            + ","
-            + str(response.json()["timestamp"][12:17])
+            "\n" + str(turnover) + "," + str(diff) + "," + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -281,7 +272,7 @@ def niftycall(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def niftycallchain(base_url, rest_url, call_headers, csv_columns):
+def niftycall(base_url, rest_url, call_headers, csv_columns):
     """
     banknifty option chain data
 
@@ -313,20 +304,20 @@ def niftycallchain(base_url, rest_url, call_headers, csv_columns):
             continue
 
         try:
-            record = response.json()["records"]["data"]
+            data = json.loads(response.content)["records"]["data"]
         except Exception as e:
             print(e)
             continue
 
-        if record is None:
-            print("None Record")
+        if data is None:
+            print("None data")
             continue
 
         volume = 0
         buyorders = 0
         sellorders = 0
 
-        for data in response.json()["records"]["data"]:
+        for data in json.loads(response.content)["records"]["data"]:
 
             volume = (
                 volume
@@ -353,8 +344,9 @@ def niftycallchain(base_url, rest_url, call_headers, csv_columns):
         if volume in df["niftyvolume"].values:
             continue
 
-        if response.json()["records"]["timestamp"][12:17] in df["time"].values:
-            df = df[df["time"] != response.json()["records"]["timestamp"][12:17]]
+        timestamp = json.loads(response.content)["records"]["timestamp"][12:17]
+        if timestamp in df["time"].values:
+            df = df[df["time"] != timestamp]
 
         df_cleaned = df.dropna(how="all")
         df_cleaned.to_csv(csv, index=False)
@@ -367,7 +359,7 @@ def niftycallchain(base_url, rest_url, call_headers, csv_columns):
             + ","
             + str(sellorders)
             + ","
-            + str(response.json()["records"]["timestamp"][12:17]),
+            + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -379,7 +371,7 @@ def niftycallchain(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def bankniftycall(base_url, rest_url, call_headers, csv_columns):
+def bankniftyopt(base_url, rest_url, call_headers, csv_columns):
     """
     This module contains code for fetching and processing
     option chain data for Bank Nifty.
@@ -410,13 +402,13 @@ def bankniftycall(base_url, rest_url, call_headers, csv_columns):
             print(response.status_code)
             continue
 
-        status = response.json()["marketStatus"]["marketStatusMessage"]
-        if status != "Market is Open":
+        status = json.loads(response.content)["marketStatus"]["marketOpenOrClose"]
+        if status != "Open":
             print(status)
             continue
 
         try:
-            record = response.json()["data"]
+            record = json.loads(response.content)
         except Exception as e:
             print(e)
             continue
@@ -426,15 +418,16 @@ def bankniftycall(base_url, rest_url, call_headers, csv_columns):
             continue
 
         turnover = 0
-        for data in record:
+        for data in record["data"]:
             turnover = turnover + int(data["totalTurnover"])
 
         df = pd.read_csv(csv, skip_blank_lines=True)
         if turnover in df["bankniftytotalTurnover"].values:
             continue
 
-        if response.json()["timestamp"][12:17] in df["time"].values:
-            df = df[df["time"] != response.json()["timestamp"][12:17]]
+        timestamp = json.loads(response.content)["timestamp"][12:17]
+        if timestamp in df["time"].values:
+            df = df[df["time"] != timestamp]
             df_cleaned = df.dropna(how="all")
             df_cleaned.to_csv(csv, index=False)
 
@@ -450,12 +443,7 @@ def bankniftycall(base_url, rest_url, call_headers, csv_columns):
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
         newline = str(
-            "\n"
-            + str(turnover)
-            + ","
-            + str(diff)
-            + ","
-            + str(response.json()["timestamp"][12:17])
+            "\n" + str(turnover) + "," + str(diff) + "," + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -467,7 +455,7 @@ def bankniftycall(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def bankniftycallchain(base_url, rest_url, call_headers, csv_columns):
+def bankniftycall(base_url, rest_url, call_headers, csv_columns):
     """
     banknifty option chain data
 
@@ -499,20 +487,20 @@ def bankniftycallchain(base_url, rest_url, call_headers, csv_columns):
             continue
 
         try:
-            record = response.json()["records"]["data"]
+            data = json.loads(response.content)["records"]["data"]
         except Exception as e:
             print(e)
             continue
 
-        if record is None:
-            print("None Record")
+        if data is None:
+            print("None data")
             continue
 
         volume = 0
         buyorders = 0
         sellorders = 0
 
-        for data in response.json()["records"]["data"]:
+        for data in json.loads(response.content)["records"]["data"]:
 
             volume = (
                 volume
@@ -539,8 +527,9 @@ def bankniftycallchain(base_url, rest_url, call_headers, csv_columns):
         if volume in df["bankniftyvolume"].values:
             continue
 
-        if response.json()["records"]["timestamp"][12:17] in df["time"].values:
-            df = df[df["time"] != response.json()["records"]["timestamp"][12:17]]
+        timestamp = json.loads(response.content)["records"]["timestamp"][12:17]
+        if timestamp in df["time"].values:
+            df = df[df["time"] != timestamp]
 
         df_cleaned = df.dropna(how="all")
         df_cleaned.to_csv(csv, index=False)
@@ -553,7 +542,7 @@ def bankniftycallchain(base_url, rest_url, call_headers, csv_columns):
             + ","
             + str(sellorders)
             + ","
-            + str(response.json()["records"]["timestamp"][12:17]),
+            + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -578,7 +567,7 @@ if __name__ == "__main__":
     WEBSITE = "https://www.nseindia.com/"
 
     banknifty_opt_thread = threading.Thread(
-        target=bankniftycall,
+        target=bankniftyopt,
         args=(
             WEBSITE,
             "api/liveEquity-derivatives?index=nifty_bank_opt",
@@ -587,8 +576,8 @@ if __name__ == "__main__":
         ),
     )
 
-    banknifty_thread = threading.Thread(
-        target=bankniftycallchain,
+    bankniftycall_thread = threading.Thread(
+        target=bankniftycall,
         args=(
             WEBSITE,
             "api/option-chain-indices?symbol=BANKNIFTY",
@@ -598,7 +587,7 @@ if __name__ == "__main__":
     )
 
     nifty_opt_thread = threading.Thread(
-        target=niftycall,
+        target=niftyopt,
         args=(
             WEBSITE,
             "api/liveEquity-derivatives?index=nse50_opt",
@@ -607,8 +596,8 @@ if __name__ == "__main__":
         ),
     )
 
-    nifty_thread = threading.Thread(
-        target=niftycallchain,
+    niftycall_thread = threading.Thread(
+        target=niftycall,
         args=(
             WEBSITE,
             "api/option-chain-indices?symbol=NIFTY",
@@ -638,15 +627,15 @@ if __name__ == "__main__":
     )
 
     banknifty_opt_thread.start()
-    banknifty_thread.start()
+    bankniftycall_thread.start()
     nifty_opt_thread.start()
-    nifty_thread.start()
+    niftycall_thread.start()
     nifty_fut_thread.start()
     banknifty_fut_thread.start()
 
     banknifty_opt_thread.join()
-    banknifty_thread.join()
+    bankniftycall_thread.join()
     nifty_opt_thread.join()
-    nifty_thread.join()
+    niftycall_thread.join()
     nifty_fut_thread.join()
     banknifty_fut_thread.join()
