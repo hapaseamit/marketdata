@@ -30,11 +30,11 @@ def run_script():
         ax.set_facecolor("#131722")
 
     def animatechart(i):
-        folder_path = os.path.join(os.getcwd(), "history", "niftychain")
+        folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
         niftychain_csv = os.path.join(
             folder_path, str(datetime.today().date()) + ".csv"
         )
-        folder_path = os.path.join(os.getcwd(), "history", "bniftychain")
+        folder_path = os.path.join(os.getcwd(), "history", "bniftyvolume")
         bchain_csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
         chart_path = os.path.join(os.getcwd(), "images")
@@ -48,20 +48,26 @@ def run_script():
                 print(e)
                 continue
             break
+        # Calculate volume differences
+        data1["niftyvolume_diff"] = data1["niftyvolume"].diff().fillna(0)
+        data2["bniftyvolume_diff"] = data2["bankniftyvolume"].diff().fillna(0)
         # Merging data
         data = pd.merge(data1, data2, on="time", how="inner")
+
+        # Remove rows where the difference is less than or equal to zero
+        data = data[(data["niftyvolume_diff"] > 0) & (data["bniftyvolume_diff"] > 0)]
 
         for ax in axs:
             ax.clear()
 
         axs[0].bar(
             data["time"],
-            data["niftyvolume"],
+            data["niftyvolume_diff"],
             color="#9598a1",
         )
         axs[1].bar(
             data["time"],
-            data["bankniftyvolume"],
+            data["bniftyvolume_diff"],
             color="#9598a1",
         )
 

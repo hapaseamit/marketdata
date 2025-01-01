@@ -187,12 +187,12 @@ def niftyfutcall(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def niftyopt(base_url, rest_url, call_headers, csv_columns):
+def niftyturnover(base_url, rest_url, call_headers, csv_columns):
     """
     This module contains code for fetching and processing
     option chain data for Bank Nifty.
     """
-    folder_path = os.path.join(os.getcwd(), "history", "nifty")
+    folder_path = os.path.join(os.getcwd(), "history", "niftyturnover")
     csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
     # Check if csv file exists. If don't then create one.
@@ -248,19 +248,19 @@ def niftyopt(base_url, rest_url, call_headers, csv_columns):
             df_cleaned = df.dropna(how="all")
             df_cleaned.to_csv(csv, index=False)
 
-        df = pd.read_csv(csv, skip_blank_lines=True)
-        if 0 in df["niftydiff"].values:
-            diff = turnover - df["niftytotalTurnover"].iloc[-1]
-            if diff < 0:
-                continue
-        else:
-            diff = 0
+        # df = pd.read_csv(csv, skip_blank_lines=True)
+        # if 0 in df["niftydiff"].values:
+        #     diff = turnover - df["niftytotalTurnover"].iloc[-1]
+        #     if diff < 0:
+        #         continue
+        # else:
+        #     diff = 0
 
         df_cleaned = df.dropna(how="all")
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
         newline = str(
-            "\n" + str(turnover) + "," + str(diff) + "," + str(timestamp),
+            "\n" + str(turnover) + "," + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -272,12 +272,12 @@ def niftyopt(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def niftycall(base_url, rest_url, call_headers, csv_columns):
+def niftyvolume(base_url, rest_url, call_headers, csv_columns):
     """
     banknifty option chain data
 
     """
-    folder_path = os.path.join(os.getcwd(), "history", "niftychain")
+    folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
     csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
     # Check if csv file exists. If don't then create one
@@ -371,12 +371,12 @@ def niftycall(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def bankniftyopt(base_url, rest_url, call_headers, csv_columns):
+def bniftyturnover(base_url, rest_url, call_headers, csv_columns):
     """
     This module contains code for fetching and processing
     option chain data for Bank Nifty.
     """
-    folder_path = os.path.join(os.getcwd(), "history", "bnifty")
+    folder_path = os.path.join(os.getcwd(), "history", "bniftyturnover")
     csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
     # Check if csv file exists. If don't then create one.
@@ -431,19 +431,19 @@ def bankniftyopt(base_url, rest_url, call_headers, csv_columns):
             df_cleaned = df.dropna(how="all")
             df_cleaned.to_csv(csv, index=False)
 
-        df = pd.read_csv(csv, skip_blank_lines=True)
-        if 0 in df["bankniftydiff"].values:
-            diff = turnover - df["bankniftytotalTurnover"].iloc[-1]
-            if diff < 0:
-                continue
-        else:
-            diff = 0
+        # df = pd.read_csv(csv, skip_blank_lines=True)
+        # if 0 in df["bankniftydiff"].values:
+        #     diff = turnover - df["bankniftytotalTurnover"].iloc[-1]
+        #     if diff < 0:
+        #         continue
+        # else:
+        #     diff = 0
 
         df_cleaned = df.dropna(how="all")
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
         newline = str(
-            "\n" + str(turnover) + "," + str(diff) + "," + str(timestamp),
+            "\n" + str(turnover) + "," + str(timestamp),
         )
 
         with open(csv, "a", encoding="utf-8") as f_name:
@@ -455,12 +455,12 @@ def bankniftyopt(base_url, rest_url, call_headers, csv_columns):
     print("Market Closed!")
 
 
-def bankniftycall(base_url, rest_url, call_headers, csv_columns):
+def bankniftyvolume(base_url, rest_url, call_headers, csv_columns):
     """
     banknifty option chain data
 
     """
-    folder_path = os.path.join(os.getcwd(), "history", "bniftychain")
+    folder_path = os.path.join(os.getcwd(), "history", "bniftyvolume")
     csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
     # Check if csv file exists. If don't then create one
@@ -566,8 +566,8 @@ if __name__ == "__main__":
     }
     WEBSITE = "https://www.nseindia.com/"
 
-    banknifty_opt_thread = threading.Thread(
-        target=bankniftyopt,
+    bniftyturnover_thread = threading.Thread(
+        target=bniftyturnover,
         args=(
             WEBSITE,
             "api/liveEquity-derivatives?index=nifty_bank_opt",
@@ -576,8 +576,8 @@ if __name__ == "__main__":
         ),
     )
 
-    bankniftycall_thread = threading.Thread(
-        target=bankniftycall,
+    bniftyvolume_thread = threading.Thread(
+        target=bankniftyvolume,
         args=(
             WEBSITE,
             "api/option-chain-indices?symbol=BANKNIFTY",
@@ -586,8 +586,8 @@ if __name__ == "__main__":
         ),
     )
 
-    nifty_opt_thread = threading.Thread(
-        target=niftyopt,
+    niftyturnover_thread = threading.Thread(
+        target=niftyturnover,
         args=(
             WEBSITE,
             "api/liveEquity-derivatives?index=nse50_opt",
@@ -596,8 +596,8 @@ if __name__ == "__main__":
         ),
     )
 
-    niftycall_thread = threading.Thread(
-        target=niftycall,
+    niftyvolume_thread = threading.Thread(
+        target=niftyvolume,
         args=(
             WEBSITE,
             "api/option-chain-indices?symbol=NIFTY",
@@ -626,16 +626,16 @@ if __name__ == "__main__":
         ),
     )
 
-    banknifty_opt_thread.start()
-    bankniftycall_thread.start()
-    nifty_opt_thread.start()
-    niftycall_thread.start()
+    bniftyturnover_thread.start()
+    bniftyvolume_thread.start()
+    niftyturnover_thread.start()
+    niftyvolume_thread.start()
     # nifty_fut_thread.start()
     # banknifty_fut_thread.start()
 
-    banknifty_opt_thread.join()
-    bankniftycall_thread.join()
-    nifty_opt_thread.join()
-    niftycall_thread.join()
+    bniftyturnover_thread.join()
+    bniftyvolume_thread.join()
+    niftyturnover_thread.join()
+    niftyvolume_thread.join()
     # nifty_fut_thread.join()
     # banknifty_fut_thread.join()
