@@ -31,43 +31,51 @@ def run_script():
 
     def animatechart(i):
         folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
-        niftychain_csv = os.path.join(
+        niftyvolume_csv = os.path.join(
             folder_path, str(datetime.today().date()) + ".csv"
         )
         folder_path = os.path.join(os.getcwd(), "history", "bniftyvolume")
-        bchain_csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
+        bniftyvolume_csv = os.path.join(
+            folder_path, str(datetime.today().date()) + ".csv"
+        )
 
         chart_path = os.path.join(os.getcwd(), "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
-                data1 = pd.read_csv(niftychain_csv, skip_blank_lines=True)
-                data2 = pd.read_csv(bchain_csv, skip_blank_lines=True)
+                niftyvoldata = pd.read_csv(niftyvolume_csv, skip_blank_lines=True)
+                bniftyvoldata = pd.read_csv(bniftyvolume_csv, skip_blank_lines=True)
             except Exception as e:
                 e = "Exception Occured!"
                 print(e)
                 continue
             break
+
         # Calculate volume differences
-        data1["niftyvolume_diff"] = data1["niftyvolume"].diff().fillna(0)
-        data2["bniftyvolume_diff"] = data2["bankniftyvolume"].diff().fillna(0)
+        niftyvoldata["niftyvolume_diff"] = niftyvoldata["niftyvolume"].diff().fillna(0)
+        bniftyvoldata["bniftyvolume_diff"] = (
+            bniftyvoldata["bankniftyvolume"].diff().fillna(0)
+        )
+
         # Merging data
-        data = pd.merge(data1, data2, on="time", how="inner")
+        volumedata = pd.merge(niftyvoldata, bniftyvoldata, on="time", how="inner")
 
         # Remove rows where the difference is less than or equal to zero
-        data = data[(data["niftyvolume_diff"] > 0) & (data["bniftyvolume_diff"] > 0)]
+        volumedata = volumedata[
+            (volumedata["niftyvolume_diff"] > 0) & (volumedata["bniftyvolume_diff"] > 0)
+        ]
 
         for ax in axs:
             ax.clear()
 
         axs[0].bar(
-            data["time"],
-            data["niftyvolume_diff"],
+            volumedata["time"],
+            volumedata["niftyvolume_diff"],
             color="#9598a1",
         )
         axs[1].bar(
-            data["time"],
-            data["bniftyvolume_diff"],
+            volumedata["time"],
+            volumedata["bniftyvolume_diff"],
             color="#9598a1",
         )
 
