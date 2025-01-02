@@ -83,6 +83,7 @@ def get_volume(base_url, rest_url, call_headers, csv_columns, symbol):
 
         try:
             record = json.loads(response.content)["records"]
+            timestamp = record["timestamp"][12:17]
         except Exception:
             print("Exception while fetching record")
             continue
@@ -96,7 +97,7 @@ def get_volume(base_url, rest_url, call_headers, csv_columns, symbol):
         sellorders = 0
 
         try:
-            for data in json.loads(response.content)["records"]["data"]:
+            for data in record["data"]:
 
                 volume = (
                     volume
@@ -126,7 +127,6 @@ def get_volume(base_url, rest_url, call_headers, csv_columns, symbol):
         if volume in df[symbol].values:
             continue
 
-        timestamp = json.loads(response.content)["records"]["timestamp"][12:17]
         check_timestamp(df, timestamp, csv)
         newline = str(
             "\n"
@@ -175,6 +175,7 @@ def get_turnover(base_url, rest_url, call_headers, csv_columns, symbol):
 
         try:
             record = json.loads(response.content)
+            timestamp = record["timestamp"][12:17]
         except Exception:
             print("Exception while fetching record")
             continue
@@ -195,7 +196,6 @@ def get_turnover(base_url, rest_url, call_headers, csv_columns, symbol):
         if turnover in df[symbol].values:
             continue
 
-        timestamp = json.loads(response.content)["timestamp"][12:17]
         check_timestamp(df, timestamp, csv)
         newline = str(
             "\n" + str(turnover) + "," + str(timestamp),
