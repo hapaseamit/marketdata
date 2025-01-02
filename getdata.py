@@ -10,6 +10,27 @@ import pandas as pd
 import requests
 
 
+def get_session(url, base_url, headers_ref):
+    """This funcions returns a session object with cookies set."""
+    session = requests.Session()
+    request = session.get(base_url, headers=headers_ref)
+    cookies = dict(request.cookies)
+    return session.get(url, headers=headers_ref, cookies=cookies)
+
+
+def get_marketstatus(base_url, headers_ref):
+    """This function checks market status and returns the status"""
+    status_url = "api/marketStatus"
+    response = get_session(base_url + status_url, base_url, headers_ref)
+    status_record = json.loads(response.content)
+    market_status = "Closed"
+    for item in status_record["marketState"]:
+        if item["index"] == "NIFTY 50":
+            if item["marketStatus"] != "Closed":
+                market_status = "Open"
+    return market_status
+
+
 def process_data(record, month):
     """Processing data from the record"""
     volume = 0
@@ -41,25 +62,15 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     """
     This module contains code for processing volume data.
     """
-    status = "Market is Closed"
     today = datetime.today().date().strftime("%d-%b-%Y")
     month = str(datetime.today().strftime("%b"))
     folder_path = os.path.join(os.getcwd(), "history", symbol)
     csv = os.path.join(folder_path, str(today) + ".csv")
 
-    while (
-        not datetime.strptime("15:35:00", "%H:%M:%S").time()
-        <= datetime.now().time()
-        <= datetime.strptime("15:40:00", "%H:%M:%S").time()
-    ):
+    while get_marketstatus(base_url, call_headers) != "Closed":
         # set session
         try:
-            session = requests.Session()
-            request = session.get(base_url, headers=call_headers)
-            cookies = dict(request.cookies)
-            response = session.get(
-                base_url + rest_url, headers=call_headers, cookies=cookies
-            )
+            response = get_session(base_url + rest_url, base_url, call_headers)
         except Exception:
             print("Exception while fetching response")
             continue
@@ -74,17 +85,16 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 record = json.loads(response.content)["records"]
             else:
                 record = json.loads(response.content)
-                status = record["marketStatus"]["marketStatusMessage"]
             timestamp = record["timestamp"][12:17]
         except Exception:
-            print("Exception while fetching record for ", symbol)
+            print("Exception while fetching record for", symbol)
             continue
 
-        if status == "Market is Closed" or timestamp.split(" ")[0] != today:
+        if timestamp.split(" ")[0] != today:
             continue
 
         if record is None:
-            print("Record is None for ", symbol)
+            print("Record is None for", symbol)
             continue
 
         # Check if csv file exists. If don't then create one
@@ -119,7 +129,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                     continue
                 newline = str("\n" + str(turnover) + "," + str(timestamp))
         except Exception:
-            print("Exception while processing data for ", symbol)
+            print("Exception while processing data for", symbol)
             continue
 
         # check if timestamp is already present
@@ -139,7 +149,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
         df_cleaned = df.dropna(how="all")
         df_cleaned.to_csv(csv, index=False)
         time.sleep(3)
-    print("Market Closed!")
+    print("Market closed for", symbol)
 
 
 def main():
@@ -156,6 +166,11 @@ def main():
         "accept-encoding": "gzip, deflate, br",
     }
     website_name = "https://www.nseindia.com/"
+
+    while get_marketstatus(website_name, headers) == "Closed":
+        print("Market is not opened yet!")
+        time.sleep(3)
+        os.system("clear")
 
     folders = [
         "niftyturnover",
