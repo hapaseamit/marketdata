@@ -29,25 +29,26 @@ def run_script():
     for ax in axs:
         ax.set_facecolor("#131722")
 
+    csv_file = str(datetime.today().date()) + ".csv"
+    csv_file = "2025-01-01.csv"
+
     def animatechart(i):
-        folder_path = os.path.join(os.getcwd(), "history", "niftyturnover")
-        niftyturnover_csv = os.path.join(
-            folder_path, str(datetime.today().date()) + ".csv"
-        )
-        folder_path = os.path.join(os.getcwd(), "history", "bniftyturnover")
-        bniftyturnover_csv = os.path.join(
-            folder_path, str(datetime.today().date()) + ".csv"
-        )
+        folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
+        niftyvolume_csv = os.path.join(folder_path, csv_file)
+        folder_path = os.path.join(os.getcwd(), "history", "bankniftyvolume")
+        bniftyvolume_csv = os.path.join(folder_path, csv_file)
 
         chart_path = os.path.join(os.getcwd(), "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
-                niftyturnoverdata = pd.read_csv(
-                    niftyturnover_csv, skip_blank_lines=True
+                niftyvoldata = pd.read_csv(
+                    niftyvolume_csv,
+                    skip_blank_lines=True,
                 )
-                bniftyturnoverdata = pd.read_csv(
-                    bniftyturnover_csv, skip_blank_lines=True
+                bniftyvoldata = pd.read_csv(
+                    bniftyvolume_csv,
+                    skip_blank_lines=True,
                 )
             except Exception as e:
                 e = "Exception Occured!"
@@ -56,35 +57,35 @@ def run_script():
             break
 
         # Calculate volume differences
-        niftyturnoverdata["niftyturnover_diff"] = (
-            niftyturnoverdata["niftytotalTurnover"].diff().fillna(0)
-        )
-        bniftyturnoverdata["bniftyturnover_diff"] = (
-            bniftyturnoverdata["bankniftytotalTurnover"].diff().fillna(0)
+        niftyvoldata["niftyvolume_diff"] = niftyvoldata["niftyvolume"].diff().fillna(0)
+        bniftyvoldata["bniftyvolume_diff"] = (
+            bniftyvoldata["bankniftyvolume"].diff().fillna(0)
         )
 
         # Merging data
-        turnoverdata = pd.merge(
-            niftyturnoverdata, bniftyturnoverdata, on="time", how="inner"
+        volumedata = pd.merge(
+            niftyvoldata,
+            bniftyvoldata,
+            on="time",
+            how="inner",
         )
 
         # Remove rows where the difference is less than or equal to zero
-        turnoverdata = turnoverdata[
-            (turnoverdata["niftyturnover_diff"] > 0)
-            & (turnoverdata["bniftyturnover_diff"] > 0)
+        volumedata = volumedata[
+            (volumedata["niftyvolume_diff"] > 0) & (volumedata["bniftyvolume_diff"] > 0)
         ]
 
         for ax in axs:
             ax.clear()
 
         axs[0].bar(
-            turnoverdata["time"],
-            turnoverdata["niftyturnover_diff"],
+            volumedata["time"],
+            volumedata["niftyvolume_diff"],
             color="#9598a1",
         )
         axs[1].bar(
-            turnoverdata["time"],
-            turnoverdata["bniftyturnover_diff"],
+            volumedata["time"],
+            volumedata["bniftyvolume_diff"],
             color="#9598a1",
         )
 
@@ -95,13 +96,13 @@ def run_script():
             ax.autoscale(tight=True)
 
         axs[0].set_title(
-            "Nifty Turnover",
+            "Nifty Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[1].set_title(
-            "BankNifty Turnover",
+            "Banknifty Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,

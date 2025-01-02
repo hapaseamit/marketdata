@@ -29,31 +29,33 @@ def run_script():
     for ax in axs:
         ax.set_facecolor("#131722")
 
+    csv_file = str(datetime.today().date()) + ".csv"
+    # csv_file = "2025-01-01.csv"
+
     def animatechart(i):
+
         folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
-        niftyvolume_csv = os.path.join(
-            folder_path, str(datetime.today().date()) + ".csv"
-        )
+        niftyvolume_csv = os.path.join(folder_path, csv_file)
         folder_path = os.path.join(os.getcwd(), "history", "bniftyvolume")
-        bniftyvolume_csv = os.path.join(
-            folder_path, str(datetime.today().date()) + ".csv"
-        )
+        bniftyvolume_csv = os.path.join(folder_path, csv_file)
 
         folder_path = os.path.join(os.getcwd(), "history", "niftyturnover")
-        niftyturnover_csv = os.path.join(
-            folder_path, str(datetime.today().date()) + ".csv"
-        )
+        niftyturnover_csv = os.path.join(folder_path, csv_file)
         folder_path = os.path.join(os.getcwd(), "history", "bniftyturnover")
-        bniftyturnover_csv = os.path.join(
-            folder_path, str(datetime.today().date()) + ".csv"
-        )
+        bniftyturnover_csv = os.path.join(folder_path, csv_file)
 
         chart_path = os.path.join(os.getcwd(), "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
-                niftyvoldata = pd.read_csv(niftyvolume_csv, skip_blank_lines=True)
-                bniftyvoldata = pd.read_csv(bniftyvolume_csv, skip_blank_lines=True)
+                niftyvoldata = pd.read_csv(
+                    niftyvolume_csv,
+                    skip_blank_lines=True,
+                )
+                bniftyvoldata = pd.read_csv(
+                    bniftyvolume_csv,
+                    skip_blank_lines=True,
+                )
                 niftyturnoverdata = pd.read_csv(
                     niftyturnover_csv, skip_blank_lines=True
                 )
@@ -89,9 +91,17 @@ def run_script():
         )
 
         # Merging data
-        volumedata = pd.merge(niftyvoldata, bniftyvoldata, on="time", how="inner")
+        volumedata = pd.merge(
+            niftyvoldata,
+            bniftyvoldata,
+            on="time",
+            how="inner",
+        )
         turnoverdata = pd.merge(
-            niftyturnoverdata, bniftyturnoverdata, on="time", how="inner"
+            niftyturnoverdata,
+            bniftyturnoverdata,
+            on="time",
+            how="inner",
         )
 
         # Remove rows where the difference is less than or equal to zero
