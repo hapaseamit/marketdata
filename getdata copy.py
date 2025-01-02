@@ -10,29 +10,30 @@ import pandas as pd
 import requests
 
 
-def process_data(record):
+def process_data(record, month):
     """Processing data from the record"""
     volume = 0
     buyorders = 0
     sellorders = 0
     for data in record["data"]:
-        volume = (
-            volume
-            + data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
-            + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
-        )
+        if data.get("expiryDate").split("-")[1] == month:
+            volume = (
+                volume
+                + data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
+                + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
+            )
 
-        buyorders = (
-            buyorders
-            + (data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-            + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
-        )
+            buyorders = (
+                buyorders
+                + (data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
+                + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
+            )
 
-        sellorders = (
-            sellorders
-            + (data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"])
-            + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-        )
+            sellorders = (
+                sellorders
+                + (data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"])
+                + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
+            )
     return (volume, buyorders, sellorders)
 
 
@@ -40,13 +41,11 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     """
     This module contains code for processing volume data.
     """
+    status = "Market is Closed"
+    today = datetime.today().date().strftime("%d-%b-%Y")
+    month = str(datetime.today().strftime("%b"))
     folder_path = os.path.join(os.getcwd(), "history", symbol)
-    csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
-
-    # Check if csv file exists. If don't then create one
-    if not os.path.exists(csv):
-        with open(csv, "w", encoding="utf-8") as f_name:
-            f_name.write(csv_columns)
+    csv = os.path.join(folder_path, str(today) + ".csv")
 
     while (
         not datetime.strptime("15:35:00", "%H:%M:%S").time()
@@ -69,42 +68,37 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             print(response.status_code, " ", symbol)
             continue
 
-        # Check market status
-        if datatype == "turnover":
-            try:
-                status = json.loads(response.content)["marketStatus"][
-                    "marketOpenOrClose"
-                ]
-            except Exception:
-                print("Status exception for ", symbol)
-                continue
-
-            if status != "Open":
-                print(status)
-                continue
-
         # Fetch record
         try:
             if datatype == "volume":
                 record = json.loads(response.content)["records"]
             else:
                 record = json.loads(response.content)
+                status = record["marketStatus"]["marketStatusMessage"]
             timestamp = record["timestamp"][12:17]
         except Exception:
             print("Exception while fetching record for ", symbol)
+            continue
+
+        if status == "Market is Closed" or timestamp.split(" ")[0] != today:
             continue
 
         if record is None:
             print("Record is None for ", symbol)
             continue
 
+        # Check if csv file exists. If don't then create one
+        if not os.path.exists(csv):
+            with open(csv, "w", encoding="utf-8") as f_name:
+                f_name.write(csv_columns)
+
         # Process data
         try:
+            df = pd.read_csv(csv, skip_blank_lines=True)
             if datatype == "volume":
-                volume, buyorders, sellorders = process_data(record)
+                volume, buyorders, sellorders = process_data(record, month)
                 if volume < 0:
                     continue
-                df = pd.read_csv(csv, skip_blank_lines=True)
                 if volume in df[symbol].values:
                     continue
                 newline = str(
@@ -115,21 +109,17 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                     + ","
                     + str(sellorders)
                     + ","
-                    + str(timestamp),
+                    + str(timestamp)
                 )
             else:
                 turnover = 0
                 for data in record["data"]:
                     turnover = turnover + int(data["totalTurnover"])
-                df = pd.read_csv(csv, skip_blank_lines=True)
                 if turnover in df[symbol].values:
                     continue
                 newline = str("\n" + str(turnover) + "," + str(timestamp))
         except Exception:
             print("Exception while processing data for ", symbol)
-            continue
-
-        if len(df) == 0 and timestamp == "15:30":
             continue
 
         # check if timestamp is already present
@@ -198,14 +188,14 @@ def main():
             target=get_data,
             args=(
                 website_name,
-                f"api/liveEquity-derivatives?index={sym.upper()}",
+                f"api/option-chain-indices?symbol={sym.upper()}",
                 headers,
                 f"{sym}volume,{sym}buyorders,{sym}sellorders,time",
                 f"{sym}volume",
                 "volume",
             ),
         )
-        # threads.append(thread)
+        threads.append(thread)
 
     for thread in threads:
         thread.start()
