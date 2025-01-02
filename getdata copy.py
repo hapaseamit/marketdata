@@ -10,44 +10,36 @@ import pandas as pd
 import requests
 
 
-def process_data(record, datatype):
+def process_data(record):
     """Processing data from the record"""
-    if datatype == "volume":
-        volume = 0
-        buyorders = 0
-        sellorders = 0
-        for data in record["data"]:
-            volume = (
-                volume
-                + data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
-                + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
-            )
+    volume = 0
+    buyorders = 0
+    sellorders = 0
+    for data in record["data"]:
+        volume = (
+            volume
+            + data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
+            + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
+        )
 
-            buyorders = (
-                buyorders
-                + (data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-                + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
-            )
+        buyorders = (
+            buyorders
+            + (data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
+            + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
+        )
 
-            sellorders = (
-                sellorders
-                + (data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"])
-                + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-            )
-
-        return volume, buyorders, sellorders
-    else:
-        turnover = 0
-        for data in record["data"]:
-            turnover = turnover + int(data["totalTurnover"])
-        return turnover
+        sellorders = (
+            sellorders
+            + (data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"])
+            + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
+        )
+    return (volume, buyorders, sellorders)
 
 
 def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     """
     This module contains code for processing volume data.
     """
-    # csv = create_csv(csv_columns, symbol)
     folder_path = os.path.join(os.getcwd(), "history", symbol)
     csv = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
@@ -61,6 +53,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
         <= datetime.now().time()
         <= datetime.strptime("15:40:00", "%H:%M:%S").time()
     ):
+        # set session
         try:
             session = requests.Session()
             request = session.get(base_url, headers=call_headers)
@@ -73,22 +66,24 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             continue
 
         if response.status_code != 200:
-            print(response.status_code)
+            print(response.status_code, " ", symbol)
             continue
 
+        # Check market status
         if datatype == "turnover":
             try:
                 status = json.loads(response.content)["marketStatus"][
                     "marketOpenOrClose"
                 ]
             except Exception:
-                print("Exception while fetching market status")
+                print("Status exception for ", symbol)
                 continue
 
             if status != "Open":
                 print(status)
                 continue
 
+        # Fetch record
         try:
             if datatype == "volume":
                 record = json.loads(response.content)["records"]
@@ -96,16 +91,17 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 record = json.loads(response.content)
             timestamp = record["timestamp"][12:17]
         except Exception:
-            print("Exception while fetching record")
+            print("Exception while fetching record for ", symbol)
             continue
 
         if record is None:
-            print("None record")
+            print("Record is None for ", symbol)
             continue
 
+        # Process data
         try:
             if datatype == "volume":
-                volume, buyorders, sellorders = process_data(record, datatype)
+                volume, buyorders, sellorders = process_data(record)
                 if volume < 0:
                     continue
                 df = pd.read_csv(csv, skip_blank_lines=True)
@@ -122,15 +118,21 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                     + str(timestamp),
                 )
             else:
-                turnover = process_data(record, datatype)
+                turnover = 0
+                for data in record["data"]:
+                    turnover = turnover + int(data["totalTurnover"])
                 df = pd.read_csv(csv, skip_blank_lines=True)
                 if turnover in df[symbol].values:
                     continue
                 newline = str("\n" + str(turnover) + "," + str(timestamp))
         except Exception:
-            print("Exception while processing data")
+            print("Exception while processing data for ", symbol)
             continue
 
+        if len(df) == 0 and timestamp == "15:30":
+            continue
+
+        # check if timestamp is already present
         if timestamp in df["time"].values:
             df = df[df["time"] != timestamp]
             df_cleaned = df.dropna(how="all")
@@ -140,6 +142,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
         df_cleaned.to_csv(csv, index=False)
         time.sleep(1)
 
+        # Write data to csv
         with open(csv, "a", encoding="utf-8") as f_name:
             f_name.write(newline)
         df = pd.read_csv(csv, skip_blank_lines=True)
@@ -174,6 +177,7 @@ def main():
     sub_urls = ["nse50_opt", "nifty_bank_opt", "nse50_fut", "nifty_bank_fut"]
     threads = []
 
+    # Turnover threads
     for folder, sub_url in zip(folders, sub_urls):
         thread = threading.Thread(
             target=get_data,
@@ -188,6 +192,7 @@ def main():
         )
         threads.append(thread)
 
+    # Volume threads
     for sym in ["nifty", "banknifty"]:
         thread = threading.Thread(
             target=get_data,
@@ -200,7 +205,7 @@ def main():
                 "volume",
             ),
         )
-        threads.append(thread)
+        # threads.append(thread)
 
     for thread in threads:
         thread.start()
