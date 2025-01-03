@@ -8,7 +8,7 @@ import pandas as pd
 from matplotlib.animation import FuncAnimation
 
 
-def run_script():
+def main():
     """
     This function runs the script.
     """
@@ -29,16 +29,18 @@ def run_script():
     for ax in axs:
         ax.set_facecolor("#131722")
 
-    csv_file = str(datetime.today().date()) + ".csv"
-    csv_file = "2025-01-01.csv"
+    today = datetime.today().date().strftime("%d-%b-%Y")
+    csv_file = str(today) + ".csv"
+    cwd = os.getcwd()
+    # csv_file = "2025-01-01.csv"
 
     def animatechart(i):
-        folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
+        folder_path = os.path.join(cwd, "history", "niftyvolume")
         niftyvolume_csv = os.path.join(folder_path, csv_file)
-        folder_path = os.path.join(os.getcwd(), "history", "bankniftyvolume")
+        folder_path = os.path.join(cwd, "history", "bankniftyvolume")
         bniftyvolume_csv = os.path.join(folder_path, csv_file)
 
-        chart_path = os.path.join(os.getcwd(), "images")
+        chart_path = os.path.join(cwd, "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
@@ -57,9 +59,11 @@ def run_script():
             break
 
         # Calculate volume differences
-        niftyvoldata["niftyvolume_diff"] = niftyvoldata["niftyvolume"].diff().fillna(0)
+        niftyvoldata["niftyvolume_diff"] = (
+            niftyvoldata["niftyvolume"].diff().fillna(0).abs()
+        )
         bniftyvoldata["bniftyvolume_diff"] = (
-            bniftyvoldata["bankniftyvolume"].diff().fillna(0)
+            bniftyvoldata["bankniftyvolume"].diff().fillna(0).abs()
         )
 
         # Merging data
@@ -143,4 +147,5 @@ def run_script():
     plt.show()
 
 
-run_script()
+if __name__ == "__main__":
+    main()

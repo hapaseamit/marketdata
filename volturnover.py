@@ -1,3 +1,5 @@
+"""This module contains the main function of the script."""
+
 import os
 from datetime import datetime
 
@@ -8,7 +10,7 @@ import pandas as pd
 from matplotlib.animation import FuncAnimation
 
 
-def run_script():
+def main():
     """
     This function runs the script.
     """
@@ -29,22 +31,24 @@ def run_script():
     for ax in axs:
         ax.set_facecolor("#131722")
 
-    csv_file = str(datetime.today().date()) + ".csv"
+    today = datetime.today().date().strftime("%d-%b-%Y")
+    csv_file = str(today) + ".csv"
+    cwd = os.getcwd()
     # csv_file = "2025-01-01.csv"
 
     def animatechart(i):
 
-        folder_path = os.path.join(os.getcwd(), "history", "niftyvolume")
+        folder_path = os.path.join(cwd, "history", "niftyvolume")
         niftyvolume_csv = os.path.join(folder_path, csv_file)
-        folder_path = os.path.join(os.getcwd(), "history", "bniftyvolume")
+        folder_path = os.path.join(cwd, "history", "bniftyvolume")
         bniftyvolume_csv = os.path.join(folder_path, csv_file)
 
-        folder_path = os.path.join(os.getcwd(), "history", "niftyturnover")
+        folder_path = os.path.join(cwd, "history", "niftyturnover")
         niftyturnover_csv = os.path.join(folder_path, csv_file)
-        folder_path = os.path.join(os.getcwd(), "history", "bniftyturnover")
+        folder_path = os.path.join(cwd, "history", "bniftyturnover")
         bniftyturnover_csv = os.path.join(folder_path, csv_file)
 
-        chart_path = os.path.join(os.getcwd(), "images")
+        chart_path = os.path.join(cwd, "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
@@ -105,11 +109,6 @@ def run_script():
         )
 
         # Remove rows where the difference is less than or equal to zero
-        # volumedata = volumedata[
-        #     (volumedata["niftyvolume_diff"] > 0) & (volumedata["bniftyvolume_diff"] > 0)
-        # ]
-
-        # Remove rows where the difference is less than or equal to zero
         volumedata = volumedata[
             (volumedata["niftybuyorders_diff"] > 0)
             & (volumedata["niftysellorders_diff"] > 0)
@@ -127,16 +126,6 @@ def run_script():
         for ax in axs:
             ax.clear()
 
-        # axs[0].bar(
-        #     data["time"],
-        #     data["niftyvolume_diff"],
-        #     color="#9598a1",
-        # )
-        # axs[1].bar(
-        #     data["time"],
-        #     data["bniftyvolume_diff"],
-        #     color="#9598a1",
-        # )
         axs[0].bar(
             data["time"],
             data["niftyturnover_diff"],
@@ -174,18 +163,6 @@ def run_script():
         for ax in axs:
             ax.autoscale(tight=True)
 
-        # axs[0].set_title(
-        #     "Nifty Volume",
-        #     loc="left",
-        #     color="#9598a1",
-        #     fontsize=12,
-        # )
-        # axs[1].set_title(
-        #     "Banknifty Volume",
-        #     loc="left",
-        #     color="#9598a1",
-        #     fontsize=12,
-        # )
         axs[0].set_title(
             "Nifty Turnover",
             loc="left",
@@ -258,4 +235,5 @@ def run_script():
     plt.show()
 
 
-run_script()
+if __name__ == "__main__":
+    main()

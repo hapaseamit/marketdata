@@ -1,3 +1,5 @@
+""" This script gets data from a website and writes it to a csv file."""
+
 import os
 from datetime import datetime
 
@@ -8,7 +10,7 @@ import pandas as pd
 from matplotlib.animation import FuncAnimation
 
 
-def run_script():
+def main():
     """
     This function runs the script.
     """
@@ -18,7 +20,7 @@ def run_script():
 
     plt.style.use("fivethirtyeight")
     fig, axs = plt.subplots(
-        2,
+        4,
         1,
         figsize=(10, 8),
         # sharex=True,
@@ -29,19 +31,34 @@ def run_script():
     for ax in axs:
         ax.set_facecolor("#131722")
 
-    csv_file = str(datetime.today().date()) + ".csv"
+    today = datetime.today().date().strftime("%d-%b-%Y")
+    csv_file = str(today) + ".csv"
+    cwd = os.getcwd()
     # csv_file = "2025-01-01.csv"
 
     def animatechart(i):
-        folder_path = os.path.join(os.getcwd(), "history", "niftyturnover")
+        folder_path = os.path.join(cwd, "history", "niftyfutturnover")
+        niftyfutturnover_csv = os.path.join(folder_path, csv_file)
+        folder_path = os.path.join(cwd, "history", "bniftyfutturnover")
+        bniftyfutturnover_csv = os.path.join(folder_path, csv_file)
+
+        folder_path = os.path.join(cwd, "history", "niftyturnover")
         niftyturnover_csv = os.path.join(folder_path, csv_file)
-        folder_path = os.path.join(os.getcwd(), "history", "bniftyturnover")
+        folder_path = os.path.join(cwd, "history", "bniftyturnover")
         bniftyturnover_csv = os.path.join(folder_path, csv_file)
 
-        chart_path = os.path.join(os.getcwd(), "images")
+        chart_path = os.path.join(cwd, "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
+                niftyfutturnoverdata = pd.read_csv(
+                    niftyfutturnover_csv,
+                    skip_blank_lines=True,
+                )
+                bniftyfutturnoverdata = pd.read_csv(
+                    bniftyfutturnover_csv,
+                    skip_blank_lines=True,
+                )
                 niftyturnoverdata = pd.read_csv(
                     niftyturnover_csv,
                     skip_blank_lines=True,
@@ -57,6 +74,12 @@ def run_script():
             break
 
         # Calculate volume differences
+        niftyfutturnoverdata["niftyfutturnover_diff"] = (
+            niftyfutturnoverdata["niftyfutturnover"].diff().fillna(0)
+        )
+        bniftyfutturnoverdata["bniftyfutturnover_diff"] = (
+            bniftyfutturnoverdata["bniftyfutturnover"].diff().fillna(0)
+        )
         niftyturnoverdata["niftyturnover_diff"] = (
             niftyturnoverdata["niftyturnover"].diff().fillna(0)
         )
@@ -65,27 +88,48 @@ def run_script():
         )
 
         # Merging data
+        futturnoverdata = pd.merge(
+            niftyfutturnoverdata,
+            bniftyfutturnoverdata,
+            on="time",
+            how="inner",
+        )
         turnoverdata = pd.merge(
             niftyturnoverdata, bniftyturnoverdata, on="time", how="inner"
         )
 
         # Remove rows where the difference is less than or equal to zero
+        futturnoverdata = futturnoverdata[
+            (futturnoverdata["niftyfutturnover_diff"] > 0)
+            & (futturnoverdata["bniftyfutturnover_diff"] > 0)
+        ]
         turnoverdata = turnoverdata[
             (turnoverdata["niftyturnover_diff"] > 0)
             & (turnoverdata["bniftyturnover_diff"] > 0)
         ]
+        data = pd.merge(futturnoverdata, turnoverdata, on="time", how="inner")
 
         for ax in axs:
             ax.clear()
 
         axs[0].bar(
-            turnoverdata["time"],
-            turnoverdata["niftyturnover_diff"],
+            data["time"],
+            data["niftyfutturnover_diff"],
             color="#9598a1",
         )
         axs[1].bar(
-            turnoverdata["time"],
-            turnoverdata["bniftyturnover_diff"],
+            data["time"],
+            data["niftyturnover_diff"],
+            color="#9598a1",
+        )
+        axs[2].bar(
+            data["time"],
+            data["bniftyfutturnover_diff"],
+            color="#9598a1",
+        )
+        axs[3].bar(
+            data["time"],
+            data["bniftyturnover_diff"],
             color="#9598a1",
         )
 
@@ -96,12 +140,24 @@ def run_script():
             ax.autoscale(tight=True)
 
         axs[0].set_title(
-            "Nifty Turnover",
+            "Nifty Future Turnover",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[1].set_title(
+            "Nifty Turnover",
+            loc="left",
+            color="#9598a1",
+            fontsize=12,
+        )
+        axs[2].set_title(
+            "BankNifty Future Turnover",
+            loc="left",
+            color="#9598a1",
+            fontsize=12,
+        )
+        axs[3].set_title(
             "BankNifty Turnover",
             loc="left",
             color="#9598a1",
@@ -147,4 +203,5 @@ def run_script():
     plt.show()
 
 
-run_script()
+if __name__ == "__main__":
+    main()

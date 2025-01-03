@@ -18,17 +18,38 @@ def get_session(url, base_url, headers_ref):
     return session.get(url, headers=headers_ref, cookies=cookies)
 
 
-def get_marketstatus(base_url, headers_ref):
+def marketstatus(base_url, headers_ref, symbol):
     """This function checks market status and returns the status"""
     status_url = "api/marketStatus"
-    response = get_session(base_url + status_url, base_url, headers_ref)
-    status_record = json.loads(response.content)
-    market_status = "Closed"
-    for item in status_record["marketState"]:
-        if item["index"] == "NIFTY 50":
-            if item["marketStatus"] != "Closed":
-                market_status = "Open"
-    return market_status
+    while True:
+        try:
+            response = get_session(
+                base_url + status_url,
+                base_url,
+                headers_ref,
+            )
+            status_record = json.loads(response.content)
+            for item in status_record["marketState"]:
+                if item["index"] == "NIFTY 50":
+                    return item["marketStatus"]
+        except Exception:
+            print("Exception while fetching market status for", symbol)
+            time.sleep(3)
+
+
+# def sort_csv(df):
+#     """This function sorts the csv file"""
+#     df = df.dropna(how="all")
+#     df["time"] = df["time"].str.strip()
+#     df = df.sort_values(
+#         by="time",
+#         key=lambda x: pd.to_datetime(
+#             x,
+#             format="%H:%M",
+#             errors="coerce",
+#         ),
+#     )
+#     return df
 
 
 def process_data(record, month):
@@ -67,7 +88,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     folder_path = os.path.join(os.getcwd(), "history", symbol)
     csv = os.path.join(folder_path, str(today) + ".csv")
 
-    while get_marketstatus(base_url, call_headers) != "Closed":
+    while marketstatus(base_url, call_headers, symbol) == "Open":
         # set session
         try:
             response = get_session(base_url + rest_url, base_url, call_headers)
@@ -86,11 +107,12 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             else:
                 record = json.loads(response.content)
             timestamp = record["timestamp"][12:17]
+            datestamp = record["timestamp"].split(" ")[0]
         except Exception:
             print("Exception while fetching record for", symbol)
             continue
 
-        if timestamp.split(" ")[0] != today:
+        if datestamp != today:
             continue
 
         if record is None:
@@ -105,6 +127,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
         # Process data
         try:
             df = pd.read_csv(csv, skip_blank_lines=True)
+            # df = sort_csv(df)
             if datatype == "volume":
                 volume, buyorders, sellorders = process_data(record, month)
                 if volume < 0:
@@ -135,19 +158,28 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
         # check if timestamp is already present
         if timestamp in df["time"].values:
             df = df[df["time"] != timestamp]
-            df_cleaned = df.dropna(how="all")
-            df_cleaned.to_csv(csv, index=False)
+            # sort_csv(df).to_csv(csv, index=False)
 
-        df_cleaned = df.dropna(how="all")
-        df_cleaned.to_csv(csv, index=False)
+        # sort_csv(df).to_csv(csv, index=False)
         time.sleep(1)
 
         # Write data to csv
         with open(csv, "a", encoding="utf-8") as f_name:
             f_name.write(newline)
         df = pd.read_csv(csv, skip_blank_lines=True)
-        df_cleaned = df.dropna(how="all")
-        df_cleaned.to_csv(csv, index=False)
+        # df = sort_csv(df)
+        df = df.dropna(how="all")
+        df["time"] = df["time"].str.strip()
+        df = df.sort_values(
+            by="time",
+            key=lambda x: pd.to_datetime(
+                x,
+                format="%H:%M",
+                errors="coerce",
+            ),
+        )
+        df.to_csv(csv, index=False)
+        # df.to_csv(csv, index=False)
         time.sleep(3)
     print("Market closed for", symbol)
 
@@ -167,7 +199,7 @@ def main():
     }
     website_name = "https://www.nseindia.com/"
 
-    while get_marketstatus(website_name, headers) == "Closed":
+    while marketstatus(website_name, headers, "Initial check") == "Closed":
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
