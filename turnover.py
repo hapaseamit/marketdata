@@ -20,7 +20,7 @@ def main():
 
     plt.style.use("fivethirtyeight")
     fig, axs = plt.subplots(
-        4,
+        3,
         1,
         figsize=(10, 8),
         # sharex=True,
@@ -34,87 +34,80 @@ def main():
     today = datetime.today().date().strftime("%d-%b-%Y")
     csv_file = str(today) + ".csv"
     cwd = os.getcwd()
-    # csv_file = "2025-01-01.csv"
+    csv_file = "03-Jan-2025.csv"
 
     def animatechart(i):
+        folder_path = os.path.join(cwd, "history", "niftyvolume")
+        niftyvolume_csv = os.path.join(folder_path, csv_file)
+
         folder_path = os.path.join(cwd, "history", "niftyfutturnover")
         niftyfutturnover_csv = os.path.join(folder_path, csv_file)
-        folder_path = os.path.join(cwd, "history", "bniftyfutturnover")
-        bniftyfutturnover_csv = os.path.join(folder_path, csv_file)
 
         folder_path = os.path.join(cwd, "history", "niftyturnover")
         niftyturnover_csv = os.path.join(folder_path, csv_file)
-        folder_path = os.path.join(cwd, "history", "bniftyturnover")
-        bniftyturnover_csv = os.path.join(folder_path, csv_file)
 
         chart_path = os.path.join(cwd, "images")
         chart = os.path.join(chart_path, "chart.png")
         while True:
             try:
-                niftyfutturnoverdata = pd.read_csv(
-                    niftyfutturnover_csv,
+                niftyvoldata = pd.read_csv(
+                    niftyvolume_csv,
                     skip_blank_lines=True,
                 )
-                bniftyfutturnoverdata = pd.read_csv(
-                    bniftyfutturnover_csv,
+                niftyfutturnoverdata = pd.read_csv(
+                    niftyfutturnover_csv,
                     skip_blank_lines=True,
                 )
                 niftyturnoverdata = pd.read_csv(
                     niftyturnover_csv,
                     skip_blank_lines=True,
                 )
-                bniftyturnoverdata = pd.read_csv(
-                    bniftyturnover_csv,
-                    skip_blank_lines=True,
-                )
-            except Exception as e:
-                e = "Exception Occured!"
-                print(e)
+            except Exception:
+                print("Exception Occured!")
                 continue
             break
 
         # Calculate volume differences
+        niftyvoldata["niftyvolume_diff"] = (
+            niftyvoldata["niftyvolume"].diff().fillna(0).abs()
+        )
         niftyfutturnoverdata["niftyfutturnover_diff"] = (
             niftyfutturnoverdata["niftyfutturnover"].diff().fillna(0)
-        )
-        bniftyfutturnoverdata["bniftyfutturnover_diff"] = (
-            bniftyfutturnoverdata["bniftyfutturnover"].diff().fillna(0)
         )
         niftyturnoverdata["niftyturnover_diff"] = (
             niftyturnoverdata["niftyturnover"].diff().fillna(0)
         )
-        bniftyturnoverdata["bniftyturnover_diff"] = (
-            bniftyturnoverdata["bniftyturnover"].diff().fillna(0)
-        )
+
+        # Remove rows where the difference is less than or equal to zero
+        niftyvoldata = niftyvoldata[(niftyvoldata["niftyvolume_diff"] > 0)]
+        niftyturnoverdata = niftyturnoverdata[
+            (niftyturnoverdata["niftyturnover_diff"] > 0)
+        ]
+        niftyfutturnoverdata = niftyfutturnoverdata[
+            (niftyfutturnoverdata["niftyfutturnover_diff"] > 0)
+        ]
 
         # Merging data
-        futturnoverdata = pd.merge(
+        turnoverdata = pd.merge(
+            niftyturnoverdata,
             niftyfutturnoverdata,
-            bniftyfutturnoverdata,
             on="time",
             how="inner",
         )
-        turnoverdata = pd.merge(
-            niftyturnoverdata, bniftyturnoverdata, on="time", how="inner"
-        )
 
-        # Remove rows where the difference is less than or equal to zero
-        futturnoverdata = futturnoverdata[
-            (futturnoverdata["niftyfutturnover_diff"] > 0)
-            & (futturnoverdata["bniftyfutturnover_diff"] > 0)
-        ]
-        turnoverdata = turnoverdata[
-            (turnoverdata["niftyturnover_diff"] > 0)
-            & (turnoverdata["bniftyturnover_diff"] > 0)
-        ]
-        data = pd.merge(futturnoverdata, turnoverdata, on="time", how="inner")
+        data = pd.merge(
+            niftyvoldata,
+            turnoverdata,
+            on="time",
+            how="inner",
+        )
 
         for ax in axs:
             ax.clear()
 
         axs[0].bar(
             data["time"],
-            data["niftyfutturnover_diff"],
+            data["niftyvolume_diff"],
             color="#9598a1",
         )
         axs[1].bar(
@@ -124,12 +117,7 @@ def main():
         )
         axs[2].bar(
             data["time"],
-            data["bniftyfutturnover_diff"],
-            color="#9598a1",
-        )
-        axs[3].bar(
-            data["time"],
-            data["bniftyturnover_diff"],
+            data["niftyfutturnover_diff"],
             color="#9598a1",
         )
 
@@ -140,7 +128,7 @@ def main():
             ax.autoscale(tight=True)
 
         axs[0].set_title(
-            "Nifty Future Turnover",
+            "Nifty Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
@@ -152,13 +140,7 @@ def main():
             fontsize=12,
         )
         axs[2].set_title(
-            "BankNifty Future Turnover",
-            loc="left",
-            color="#9598a1",
-            fontsize=12,
-        )
-        axs[3].set_title(
-            "BankNifty Turnover",
+            "Nifty Future Turnover",
             loc="left",
             color="#9598a1",
             fontsize=12,

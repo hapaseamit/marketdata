@@ -1,9 +1,11 @@
 """ This script gets data from a website and writes it to a csv file."""
 
+# pylint: disable=broad-except
+import csv
 import json
 import os
-import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import pandas as pd
@@ -20,16 +22,15 @@ def get_session(url, base_url, headers_ref):
 
 def marketstatus(base_url, headers_ref, symbol):
     """This function checks market status and returns the status"""
-    status_url = "api/marketStatus"
     while True:
         try:
-            response = get_session(
-                base_url + status_url,
-                base_url,
-                headers_ref,
-            )
-            status_record = json.loads(response.content)
-            for item in status_record["marketState"]:
+            for item in json.loads(
+                get_session(
+                    base_url + "api/marketStatus",
+                    base_url,
+                    headers_ref,
+                ).content
+            )["marketState"]:
                 if item["index"] == "NIFTY 50":
                     return item["marketStatus"]
         except Exception:
@@ -37,150 +38,93 @@ def marketstatus(base_url, headers_ref, symbol):
             time.sleep(3)
 
 
-# def sort_csv(df):
-#     """This function sorts the csv file"""
-#     df = df.dropna(how="all")
-#     df["time"] = df["time"].str.strip()
-#     df = df.sort_values(
-#         by="time",
-#         key=lambda x: pd.to_datetime(
-#             x,
-#             format="%H:%M",
-#             errors="coerce",
-#         ),
-#     )
-#     return df
+def sort_csv(df):
+    """This function sorts the csv file"""
+    df = df.dropna(how="all")
+    df["time"] = df["time"].str.strip()
+    df = df.sort_values(
+        by="time",
+        key=lambda x: pd.to_datetime(
+            x,
+            format="%H:%M",
+            errors="coerce",
+        ),
+    )
+    return df
 
 
-def process_data(record, month):
+def process_data(record):
     """Processing data from the record"""
-    volume = 0
-    buyorders = 0
-    sellorders = 0
-    for data in record["data"]:
-        if data.get("expiryDate").split("-")[1] == month:
-            volume = (
-                volume
-                + data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
+    volume, buyorders, sellorders = 0, 0, 0
+    for data in record.get("data", []):
+        if data.get("expiryDate") in record.get("expiryDates", [])[:10]:
+            volume += (
+                data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
                 + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
             )
-
-            buyorders = (
-                buyorders
-                + (data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-                + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
-            )
-
-            sellorders = (
-                sellorders
-                + (data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"])
-                + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-            )
+            buyorders += (
+                data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"]
+            ) + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
+            sellorders += (
+                data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"]
+            ) + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
     return (volume, buyorders, sellorders)
 
 
 def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
-    """
-    This module contains code for processing volume data.
-    """
-    today = datetime.today().date().strftime("%d-%b-%Y")
-    month = str(datetime.today().strftime("%b"))
+    """This module contains code for processing market data."""
+    time.sleep(10)
     folder_path = os.path.join(os.getcwd(), "history", symbol)
-    csv = os.path.join(folder_path, str(today) + ".csv")
+    csvfile = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
+
+    # Check if csv file exists. If don't then create one
+    if not os.path.exists(csvfile):
+        with open(csvfile, "w", encoding="utf-8") as f_name:
+            f_name.write(csv_columns)
 
     while marketstatus(base_url, call_headers, symbol) == "Open":
         # set session
         try:
             response = get_session(base_url + rest_url, base_url, call_headers)
-        except Exception:
-            print("Exception while fetching response")
-            continue
-
-        if response.status_code != 200:
-            print(response.status_code, " ", symbol)
-            continue
-
-        # Fetch record
-        try:
+            if response.status_code != 200:
+                raise Exception(response.status_code, symbol)
             if datatype == "volume":
-                record = json.loads(response.content)["records"]
+                record = json.loads(response.content).get("records")
             else:
                 record = json.loads(response.content)
+            if record is None:
+                raise Exception("None record for", symbol)
+
             timestamp = record["timestamp"][12:17]
-            datestamp = record["timestamp"].split(" ")[0]
-        except Exception:
-            print("Exception while fetching record for", symbol)
-            continue
-
-        if datestamp != today:
-            continue
-
-        if record is None:
-            print("Record is None for", symbol)
-            continue
-
-        # Check if csv file exists. If don't then create one
-        if not os.path.exists(csv):
-            with open(csv, "w", encoding="utf-8") as f_name:
-                f_name.write(csv_columns)
-
-        # Process data
-        try:
-            df = pd.read_csv(csv, skip_blank_lines=True)
-            # df = sort_csv(df)
+            df = pd.read_csv(csvfile, skip_blank_lines=True)
             if datatype == "volume":
-                volume, buyorders, sellorders = process_data(record, month)
-                if volume < 0:
+                volume, buyorders, sellorders = process_data(record)
+                if volume < 0 or volume in df[symbol].values:
                     continue
-                if volume in df[symbol].values:
-                    continue
-                newline = str(
-                    "\n"
-                    + str(volume)
-                    + ","
-                    + str(buyorders)
-                    + ","
-                    + str(sellorders)
-                    + ","
-                    + str(timestamp)
-                )
+                line = [volume, buyorders, sellorders, timestamp]
             else:
                 turnover = 0
                 for data in record["data"]:
-                    turnover = turnover + int(data["totalTurnover"])
+                    turnover += int(data["totalTurnover"])
                 if turnover in df[symbol].values:
                     continue
-                newline = str("\n" + str(turnover) + "," + str(timestamp))
+                line = [turnover, timestamp]
+
+            # check if timestamp is already present
+            if timestamp in df["time"].values:
+                df = df[df["time"] != timestamp]
+                sort_csv(df).to_csv(csvfile, index=False)
+
+            time.sleep(1)
+            # Write data to csv
+            with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
+                csv.writer(f_name).writerow(line)
+            df = pd.read_csv(csvfile, skip_blank_lines=True)
+            sort_csv(df).to_csv(csvfile, index=False)
+            time.sleep(3)
         except Exception:
-            print("Exception while processing data for", symbol)
+            time.sleep(5)
             continue
-
-        # check if timestamp is already present
-        if timestamp in df["time"].values:
-            df = df[df["time"] != timestamp]
-            # sort_csv(df).to_csv(csv, index=False)
-
-        # sort_csv(df).to_csv(csv, index=False)
-        time.sleep(1)
-
-        # Write data to csv
-        with open(csv, "a", encoding="utf-8") as f_name:
-            f_name.write(newline)
-        df = pd.read_csv(csv, skip_blank_lines=True)
-        # df = sort_csv(df)
-        df = df.dropna(how="all")
-        df["time"] = df["time"].str.strip()
-        df = df.sort_values(
-            by="time",
-            key=lambda x: pd.to_datetime(
-                x,
-                format="%H:%M",
-                errors="coerce",
-            ),
-        )
-        df.to_csv(csv, index=False)
-        # df.to_csv(csv, index=False)
-        time.sleep(3)
     print("Market closed for", symbol)
 
 
@@ -199,56 +143,42 @@ def main():
     }
     website_name = "https://www.nseindia.com/"
 
-    while marketstatus(website_name, headers, "Initial check") == "Closed":
+    while marketstatus(website_name, headers, "initial check") == "Close":
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
 
-    folders = [
-        "niftyturnover",
-        "bniftyturnover",
-        "niftyfutturnover",
-        "bniftyfutturnover",
+    instruments = [
+        ("niftyturnover", "nse50_opt"),
+        ("niftyfutturnover", "nse50_fut"),
+        # ("bniftyturnover", "nifty_bank_opt"),
+        # ("bniftyfutturnover", "nifty_bank_fut"),
     ]
 
-    sub_urls = ["nse50_opt", "nifty_bank_opt", "nse50_fut", "nifty_bank_fut"]
-    threads = []
-
-    # Turnover threads
-    for folder, sub_url in zip(folders, sub_urls):
-        thread = threading.Thread(
-            target=get_data,
-            args=(
+    with ThreadPoolExecutor() as executor:
+        # Turnover threads
+        for folder, sub_url in instruments:
+            executor.submit(
+                get_data,
                 website_name,
                 f"api/liveEquity-derivatives?index={sub_url}",
                 headers,
                 f"{folder},time",
                 folder,
                 "turnover",
-            ),
-        )
-        threads.append(thread)
+            )
 
-    # Volume threads
-    for sym in ["nifty", "banknifty"]:
-        thread = threading.Thread(
-            target=get_data,
-            args=(
+        # Volume threads
+        for sym in ["nifty"]:
+            executor.submit(
+                get_data,
                 website_name,
                 f"api/option-chain-indices?symbol={sym.upper()}",
                 headers,
                 f"{sym}volume,{sym}buyorders,{sym}sellorders,time",
                 f"{sym}volume",
                 "volume",
-            ),
-        )
-        threads.append(thread)
-
-    for thread in threads:
-        thread.start()
-
-    for thread in threads:
-        thread.join()
+            )
 
 
 if __name__ == "__main__":
