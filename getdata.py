@@ -148,36 +148,40 @@ def main():
         time.sleep(3)
         os.system("clear")
 
-    instruments = [
-        ("niftyturnover", "nse50_opt"),
-        ("niftyfutturnover", "nse50_fut"),
-        # ("bniftyturnover", "nifty_bank_opt"),
-        # ("bniftyfutturnover", "nifty_bank_fut"),
+    # Combined task list
+    tasks = [
+        # Turnover tasks
+        (
+            "niftyturnover",
+            "api/liveEquity-derivatives?index=nse50_opt",
+            "turnover",
+            "niftyturnover,time",
+        ),
+        (
+            "niftyfutturnover",
+            "api/liveEquity-derivatives?index=nse50_fut",
+            "turnover",
+            "niftyfutturnover,time",
+        ),
+        # Volume tasks
+        (
+            "niftyvolume",
+            "api/option-chain-indices?symbol=NIFTY",
+            "volume",
+            "niftyvolume,niftybuyorders,niftysellorders,time",
+        ),
     ]
 
     with ThreadPoolExecutor() as executor:
-        # Turnover threads
-        for folder, sub_url in instruments:
+        for folder, rest_url, datatype, csv_columns in tasks:
             executor.submit(
                 get_data,
                 website_name,
-                f"api/liveEquity-derivatives?index={sub_url}",
+                rest_url,
                 headers,
-                f"{folder},time",
+                csv_columns,
                 folder,
-                "turnover",
-            )
-
-        # Volume threads
-        for sym in ["nifty"]:
-            executor.submit(
-                get_data,
-                website_name,
-                f"api/option-chain-indices?symbol={sym.upper()}",
-                headers,
-                f"{sym}volume,{sym}buyorders,{sym}sellorders,time",
-                f"{sym}volume",
-                "volume",
+                datatype,
             )
 
 
