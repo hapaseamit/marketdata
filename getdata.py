@@ -15,9 +15,14 @@ import requests
 def get_session(url, base_url, headers_ref):
     """This funcions returns a session object with cookies set."""
     session = requests.Session()
-    request = session.get(base_url, headers=headers_ref)
-    cookies = dict(request.cookies)
-    return session.get(url, headers=headers_ref, cookies=cookies)
+    while True:
+        try:
+            request = session.get(base_url, headers=headers_ref)
+            cookies = dict(request.cookies)
+            return session.get(url, headers=headers_ref, cookies=cookies)
+        except Exception:
+            print("Exception while creating session for", url)
+            time.sleep(3)
 
 
 def marketstatus(base_url, headers_ref, symbol):
@@ -103,20 +108,23 @@ def calculate_diff(csvfile, csv_columns, line, symbol):
 
 def process_data(record):
     """Processing data from the record"""
-    volume, buyorders, sellorders = 0, 0, 0
-    for data in record.get("data", []):
-        if data.get("expiryDate") in record.get("expiryDates", [])[:10]:
-            volume += (
-                data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
-                + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
-            )
-            buyorders += (
-                data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"]
-            ) + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
-            sellorders += (
-                data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"]
-            ) + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-    return (volume, buyorders, sellorders)
+    try:
+        volume, buyorders, sellorders = 0, 0, 0
+        for data in record.get("data", []):
+            if data.get("expiryDate") in record.get("expiryDates", [])[:10]:
+                volume += (
+                    data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
+                    + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
+                )
+                buyorders += (
+                    data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"]
+                ) + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
+                sellorders += (
+                    data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"]
+                ) + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
+        return (volume, buyorders, sellorders)
+    except Exception:
+        return None
 
 
 def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
@@ -146,6 +154,8 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             timestamp = record["timestamp"][12:17]
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             if datatype == "volume":
+                if process_data(record) is None:
+                    continue
                 volume, buyorders, sellorders = process_data(record)
                 if volume < 0 or volume in df[symbol].values:
                     continue
