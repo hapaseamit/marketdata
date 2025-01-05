@@ -173,8 +173,8 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             # check if timestamp is already present
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
-                sort_csv(df).to_csv(csvfile, index=False)
 
+            sort_csv(df).to_csv(csvfile, index=False)
             line_list = calculate_diff(csvfile, csv_columns, line, symbol)
             time.sleep(1)
             # Write data to csv
