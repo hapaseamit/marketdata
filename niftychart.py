@@ -66,61 +66,21 @@ def main():
                 continue
             break
 
-        # Calculate nifty volume data difference
-        niftyvoldata["niftyvolume_diff"] = (
-            niftyvoldata["niftyvolume"].diff().fillna(0).abs()
-        )
-        # Min-Max normalization to scale niftybuyorders column
-        min_value = niftyvoldata["niftybuyorders"].min()
-        max_value = niftyvoldata["niftybuyorders"].max()
+        # Scale niftybuyorders & niftysellorders columns
+        min_value_buy = niftyvoldata["niftybuyorders"].min()
+        max_value_buy = niftyvoldata["niftybuyorders"].max()
 
-        # Normalize the column values to the range [1, 100]
-        niftyvoldata["normalized_niftybuyorders"] = (
-            niftyvoldata["niftybuyorders"] - min_value
-        ) / (max_value - min_value) * 999 + 1
+        niftyvoldata["scaled_niftybuyorders"] = (
+            niftyvoldata["niftybuyorders"] - min_value_buy
+        ) / (max_value_buy - min_value_buy) * 999 + 1
 
-        # # Min-Max normalization to scale niftysellorders column
         min_value_sell = niftyvoldata["niftysellorders"].min()
         max_value_sell = niftyvoldata["niftysellorders"].max()
 
-        # Normalize the column values to the range [1, 100]
-        niftyvoldata["normalized_niftysellorders"] = (
+        niftyvoldata["scaled_niftysellorders"] = (
             niftyvoldata["niftysellorders"] - min_value_sell
         ) / (max_value_sell - min_value_sell) * 999 + 1
 
-        niftyvoldata["niftybuyorders_diff"] = (
-            niftyvoldata["niftybuyorders"].diff().fillna(0)
-        )
-
-        niftyvoldata["niftysellorders_diff"] = (
-            niftyvoldata["niftysellorders"].diff().fillna(0)
-        )
-
-        # Calculate nifty future turnover data difference
-        niftyfutturnoverdata["niftyfutturnover_diff"] = (
-            niftyfutturnoverdata["niftyfutturnover"].diff().fillna(0)
-        )
-        niftyfutturnoverdata["niftyfutturnovervolume_diff"] = (
-            niftyfutturnoverdata["niftyfutturnovervolume"].diff().fillna(0)
-        )
-        # Calculate nifty turnover data difference
-        niftyturnoverdata["niftyturnovervolume_diff"] = (
-            niftyturnoverdata["niftyturnovervolume"].diff().fillna(0)
-        )
-        niftyturnoverdata["niftyturnover_diff"] = (
-            niftyturnoverdata["niftyturnover"].diff().fillna(0)
-        )
-
-        # Determine bar colors
-        # niftyvoldata["color"] = niftyvoldata.apply(
-        #     lambda row: (
-        #         "green" if row["niftybuyorders"] > row["niftysellorders"] else "red"
-        #     ),
-        #     axis=1,
-        # )
-        niftyvoldata["net_orders"] = (
-            niftyvoldata["niftybuyorders"] - niftyvoldata["niftysellorders"]
-        )
         niftyvoldata["color"] = (
             "red"
             if niftyvoldata["net_orders"].diff().fillna(0).lt(0).sum()
@@ -131,14 +91,16 @@ def main():
         # Remove rows where the difference is less than or equal to zero
         niftyvoldata = niftyvoldata[
             (niftyvoldata["niftyvolume_diff"] > 0)
-            # & (niftyvoldata["niftybuyorders_diff"] > 0)
-            # & (niftyvoldata["niftysellorders_diff"] > 0)
+            & (niftyvoldata["niftybuyordersdiff"] > 0)
+            & (niftyvoldata["niftysellordersdiff"] > 0)
         ]
         niftyturnoverdata = niftyturnoverdata[
-            (niftyturnoverdata["niftyturnover_diff"] > 0)
+            (niftyturnoverdata["niftyturnoverdiff"] > 0)
+            & (niftyturnoverdata["niftyturnovervolumediff"] > 0)
         ]
         niftyfutturnoverdata = niftyfutturnoverdata[
-            (niftyfutturnoverdata["niftyfutturnover_diff"] > 0)
+            (niftyfutturnoverdata["niftyfutturnoverdiff"] > 0)
+            & (niftyfutturnoverdata["niftyfutturnovervolumediff"] > 0)
         ]
 
         # Merging data
@@ -162,27 +124,27 @@ def main():
 
         axs[0].bar(
             data["time"],
-            data["niftyturnovervolume_diff"],
+            data["niftyfutturnovervolumediff"],
             color="#9598a1",
         )
         axs[1].bar(
             data["time"],
-            data["niftyfutturnovervolume_diff"],
+            data["niftyturnovervolumediff"],
             color="#9598a1",
         )
         axs[2].bar(
             data["time"],
-            data["niftyvolume_diff"],
-            color="#089981",
+            data["niftyvolumediff"],
+            color=data["color"],
         )
         axs[3].bar(
             data["time"],
-            data["niftybuyorders_diff"],
+            data["niftybuyordersdiff"],
             color="#089981",
         )
         axs[4].bar(
             data["time"],
-            data["niftysellorders_diff"],
+            data["niftysellordersdiff"],
             color="#f23645",
         )
 

@@ -53,6 +53,54 @@ def sort_csv(df):
     return df
 
 
+def calculate_diff(csvfile, csv_columns, line, symbol):
+    """This function calculates the difference between the last two rows"""
+    df = pd.read_csv(csvfile, skip_blank_lines=True)
+    if symbol == "niftyvolume":
+        if len(df) > 1:
+            # Get the last row index
+            last_index = len(df) - 1
+            line["niftyvolumediff"] = line["volume"] - df.loc[last_index, "niftyvolume"]
+            line["niftybuyordersdiff"] = (
+                line["buyorders"] - df.loc[last_index, "niftybuyorders"]
+            )
+            line["niftysellordersdiff"] = (
+                line["sellorders"] - df.loc[last_index, "niftysellorders"]
+            )
+        else:
+            line["niftyvolumediff"] = 0
+            line["niftybuyordersdiff"] = 0
+            line["niftysellordersdiff"] = 0
+    elif symbol == "niftyfutturnover":
+        if len(df) > 1:
+            # Get the last row index
+            last_index = len(df) - 1
+            line["niftyfutturnoverdiff"] = (
+                line["turnover"] - df.loc[last_index, "niftyfutturnover"]
+            )
+            line["niftyfutturnovervolumediff"] = (
+                line["turnovervolume"] - df.loc[last_index, "niftyfutturnovervolume"]
+            )
+        else:
+            line["niftyfutturnoverdiff"] = 0
+            line["niftyfutturnovervolumediff"] = 0
+    else:
+        if len(df) > 1:
+            # Get the last row index
+            last_index = len(df) - 1
+            line["niftyturnoverdiff"] = (
+                line["turnover"] - df.loc[last_index, "niftyturnover"]
+            )
+            line["niftyturnovervolumediff"] = (
+                line["turnovervolume"] - df.loc[last_index, "niftyturnovervolume"]
+            )
+        else:
+            line["niftyturnoverdiff"] = 0
+            line["niftyturnovervolumediff"] = 0
+    line_list = [line[key] for key in csv_columns]
+    return line_list
+
+
 def process_data(record):
     """Processing data from the record"""
     volume, buyorders, sellorders = 0, 0, 0
@@ -80,7 +128,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     # Check if csv file exists. If don't then create one
     if not os.path.exists(csvfile):
         with open(csvfile, "w", encoding="utf-8") as f_name:
-            f_name.write(csv_columns)
+            f_name.write(",".join(csv_columns))
 
     while marketstatus(base_url, call_headers, symbol) == "Open":
         # set session
@@ -101,7 +149,13 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 volume, buyorders, sellorders = process_data(record)
                 if volume < 0 or volume in df[symbol].values:
                     continue
-                line = [volume, buyorders, sellorders, timestamp]
+                line = {
+                    "volume": volume,
+                    "buyorders": buyorders,
+                    "sellorders": sellorders,
+                    "netorders": buyorders - sellorders,  # Derived field
+                    "timestamp": timestamp,
+                }
             else:
                 turnover = 0
                 turnovervolume = 0
@@ -110,17 +164,22 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                     turnovervolume += int(data["volume"])
                 if turnovervolume in df[symbol].values:
                     continue
-                line = [turnover, turnovervolume, timestamp]
+                line = {
+                    "turnover": turnover,
+                    "turnovervolume": turnovervolume,
+                    "timestamp": timestamp,
+                }
 
             # check if timestamp is already present
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
                 sort_csv(df).to_csv(csvfile, index=False)
 
+            line_list = calculate_diff(csvfile, csv_columns, line, symbol)
             time.sleep(1)
             # Write data to csv
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
-                csv.writer(f_name).writerow(line)
+                csv.writer(f_name).writerow(line_list)
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             sort_csv(df).to_csv(csvfile, index=False)
             time.sleep(3)
@@ -154,35 +213,56 @@ def main():
     tasks = [
         # Turnover tasks
         (
-            "niftyturnover",
             "api/liveEquity-derivatives?index=nse50_opt",
+            [
+                "niftyturnover",
+                "niftyturnovervolume",
+                "time",
+                "niftyturnoverdiff",
+                "niftyturnovervolumediff",
+            ],
+            "niftyturnover",  # symbol folder
             "turnover",
-            "niftyturnover,niftyturnovervolume,time",
         ),
         (
-            "niftyfutturnover",
             "api/liveEquity-derivatives?index=nse50_fut",
+            [
+                "niftyfutturnover",
+                "niftyfutturnovervolume",
+                "time",
+                "niftyfutturnoverdiff",
+                "niftyfutturnovervolumediff",
+            ],
+            "niftyfutturnover",  # symbol folder
             "turnover",
-            "niftyfutturnover,niftyfutturnovervolume,time",
         ),
         # Volume tasks
         (
-            "niftyvolume",
             "api/option-chain-indices?symbol=NIFTY",
+            [
+                "niftyvolume",
+                "niftybuyorders",
+                "niftysellorders",
+                "netorders",
+                "time",
+                "niftyvolumediff",
+                "niftybuyordersdiff",
+                "niftysellordersdiff",
+            ],
+            "niftyvolume",  # symbol folder
             "volume",
-            "niftyvolume,niftybuyorders,niftysellorders,time",
         ),
     ]
 
     with ThreadPoolExecutor() as executor:
-        for folder, rest_url, datatype, csv_columns in tasks:
+        for rest_url, csv_columns, symbol, datatype in tasks:
             executor.submit(
                 get_data,
                 website_name,
                 rest_url,
                 headers,
                 csv_columns,
-                folder,
+                symbol,
                 datatype,
             )
 
