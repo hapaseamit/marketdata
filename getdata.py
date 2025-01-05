@@ -104,11 +104,13 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 line = [volume, buyorders, sellorders, timestamp]
             else:
                 turnover = 0
+                turnovervolume = 0
                 for data in record["data"]:
                     turnover += int(data["totalTurnover"])
-                if turnover in df[symbol].values:
+                    turnovervolume += int(data["volume"])
+                if turnovervolume in df[symbol].values:
                     continue
-                line = [turnover, timestamp]
+                line = [turnover, turnovervolume, timestamp]
 
             # check if timestamp is already present
             if timestamp in df["time"].values:
@@ -155,13 +157,13 @@ def main():
             "niftyturnover",
             "api/liveEquity-derivatives?index=nse50_opt",
             "turnover",
-            "niftyturnover,time",
+            "niftyturnover,niftyturnovervolume,time",
         ),
         (
             "niftyfutturnover",
             "api/liveEquity-derivatives?index=nse50_fut",
             "turnover",
-            "niftyfutturnover,time",
+            "niftyfutturnover,niftyfutturnovervolume,time",
         ),
         # Volume tasks
         (
