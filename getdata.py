@@ -1,6 +1,9 @@
 """ This script gets data from a website and writes it to a csv file."""
 
 # pylint: disable=broad-except
+# flake8: noqa: E501
+# pylint: disable=W0719
+
 import csv
 import json
 import os

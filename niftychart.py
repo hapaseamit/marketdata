@@ -1,5 +1,8 @@
 """ This script gets data from a website and writes it to a csv file."""
 
+# pylint: disable=broad-except
+# pylint: disable=W0719
+
 import os
 from datetime import datetime
 
@@ -33,7 +36,7 @@ def main():
     today = datetime.today().date().strftime("%d-%b-%Y")
     csv_file = str(today) + ".csv"
     cwd = os.getcwd()
-    csv_file = "03-Jan-2025.csv"
+    # csv_file = "03-Jan-2025.csv"
 
     def animatechart(i):
         folder_path = os.path.join(cwd, "history", "niftyvolume")
