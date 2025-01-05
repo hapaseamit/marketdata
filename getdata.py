@@ -223,36 +223,34 @@ def main():
         os.system("clear")
 
     # Combined task list
-    tasks = [
-        # Turnover tasks
-        (
-            "api/liveEquity-derivatives?index=nse50_opt",
-            [
+    tasks = {
+        "nifty_turnover": {
+            "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
+            "csv_columns": [
                 "niftyturnover",
                 "niftyturnovervolume",
                 "time",
                 "niftyturnoverdiff",
                 "niftyturnovervolumediff",
             ],
-            "niftyturnover",  # symbol folder
-            "turnover",
-        ),
-        (
-            "api/liveEquity-derivatives?index=nse50_fut",
-            [
+            "symbol": "niftyturnover",
+            "datatype": "turnover",
+        },
+        "nifty_fut_turnover": {
+            "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
+            "csv_columns": [
                 "niftyfutturnover",
                 "niftyfutturnovervolume",
                 "time",
                 "niftyfutturnoverdiff",
                 "niftyfutturnovervolumediff",
             ],
-            "niftyfutturnover",  # symbol folder
-            "turnover",
-        ),
-        # Volume tasks
-        (
-            "api/option-chain-indices?symbol=NIFTY",
-            [
+            "symbol": "niftyfutturnover",
+            "datatype": "turnover",
+        },
+        "nifty_volume": {
+            "rest_url": "api/option-chain-indices?symbol=NIFTY",
+            "csv_columns": [
                 "niftyvolume",
                 "niftybuyorders",
                 "niftysellorders",
@@ -262,21 +260,21 @@ def main():
                 "niftybuyordersdiff",
                 "niftysellordersdiff",
             ],
-            "niftyvolume",  # symbol folder
-            "volume",
-        ),
-    ]
+            "symbol": "niftyvolume",
+            "datatype": "volume",
+        },
+    }
 
     with ThreadPoolExecutor() as executor:
-        for rest_url, csv_columns, symbol, datatype in tasks:
+        for task in tasks.values():
             executor.submit(
                 get_data,
                 website_name,
-                rest_url,
+                task["rest_url"],
                 headers,
-                csv_columns,
-                symbol,
-                datatype,
+                task["csv_columns"],
+                task["symbol"],
+                task["datatype"],
             )
 
 
