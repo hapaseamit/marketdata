@@ -1,8 +1,5 @@
 """ This script gets data from a website and writes it to a csv file."""
 
-# pylint: disable=broad-except
-# pylint: disable=W0719
-
 import os
 from datetime import datetime
 
@@ -126,8 +123,6 @@ def main():
             on="time",
             how="inner",
         )
-        # Writing data to a CSV file
-        # data.to_csv("merged_data.csv", index=False)
 
         for ax in axs:
             ax.clear()

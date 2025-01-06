@@ -1,9 +1,5 @@
 """ This script gets data from a website and writes it to a csv file."""
 
-# pylint: disable=broad-except
-# flake8: noqa: E501
-# pylint: disable=W0719
-
 import csv
 import json
 import os
@@ -31,14 +27,12 @@ def get_session(url, base_url, headers_ref):
 
 def marketstatus():
     """This function checks market status and returns the status"""
-    if (
-        datetime.strptime("09:15:00", "%H:%M:%S").time()
-        <= datetime.now().time()
-        <= datetime.strptime("15:34:00", "%H:%M:%S").time()
-    ):
+    start_time = datetime.strptime("09:15:00", "%H:%M:%S").time()
+    end_time = datetime.strptime("15:34:00", "%H:%M:%S").time()
+    now = datetime.now().time()
+    if start_time <= now <= end_time:
         return "Open"
-    else:
-        return "Close"
+    return "Closed"
 
 
 def sort_csv(df):
@@ -231,7 +225,7 @@ def main():
     }
     website_name = "https://www.nseindia.com/"
 
-    while marketstatus() == "Close":
+    while marketstatus() == "Closed":
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
