@@ -122,7 +122,7 @@ def main():
             turnoverdata,
             on="time",
             how="inner",
-        )
+        ).iloc[:-4]
 
         for ax in axs:
             ax.clear()

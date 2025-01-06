@@ -126,6 +126,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     """This module contains code for processing market data."""
     time.sleep(10)
     folder_path = os.path.join(os.getcwd(), "history", symbol)
+    os.makedirs(folder_path, exist_ok=True)
     csvfile = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
 
     # Check if csv file exists. If don't then create one
