@@ -39,20 +39,6 @@ def marketstatus():
         return "Open"
     else:
         return "Close"
-    # while True:
-    #     try:
-    #         for item in json.loads(
-    #             get_session(
-    #                 base_url + "api/marketStatus",
-    #                 base_url,
-    #                 headers_ref,
-    #             ).content
-    #         )["marketState"]:
-    #             if item["index"] == "NIFTY 50":
-    #                 return item["marketStatus"]
-    #     except Exception:
-    #         print("Exception while fetching market status for", symbol)
-    #         time.sleep(3)
 
 
 def sort_csv(df):
@@ -114,7 +100,10 @@ def calculate_diff(csvfile, line, symbol):
             )
         else:
             line["niftyturnovervolumediff"] = 0
-    line_list = list(line.values())
+    line_list = [
+        round(value) if isinstance(value, (float, int)) else value
+        for value in line.values()
+    ]
     return line_list
 
 
@@ -211,7 +200,6 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
 
             sort_csv(df).to_csv(csvfile, index=False)
             line_list = calculate_diff(csvfile, line, symbol)
-            # line_list = list(line.values())
             time.sleep(1)
             # Write data to csv
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
