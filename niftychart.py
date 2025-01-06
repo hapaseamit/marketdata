@@ -22,7 +22,7 @@ def main():
 
     plt.style.use("fivethirtyeight")
     fig, axs = plt.subplots(
-        5,
+        6,
         1,
         figsize=(16, 8),
         sharex=True,
@@ -33,8 +33,7 @@ def main():
     for ax in axs:
         ax.set_facecolor("#131722")
 
-    today = datetime.today().date().strftime("%d-%b-%Y")
-    csv_file = str(today) + ".csv"
+    csv_file = str(datetime.today().date()) + ".csv"
     cwd = os.getcwd()
     # csv_file = "03-Jan-2025.csv"
 
@@ -86,25 +85,31 @@ def main():
 
         niftyvoldata["color"] = (
             "red"
-            if niftyvoldata["net_orders"].diff().fillna(0).lt(0).sum()
-            > niftyvoldata["net_orders"].diff().gt(0).sum()
+            if niftyvoldata["netorders"].diff().fillna(0).lt(0).sum()
+            > niftyvoldata["netorders"].diff().gt(0).sum()
             else "green"
+        )
+        niftyvoldata["net_orders_color"] = (
+            "green"
+            if niftyvoldata["netorders"].diff().fillna(0).lt(0).sum()
+            > niftyvoldata["netorders"].diff().gt(0).sum()
+            else "red"
         )
 
         # Remove rows where the difference is less than or equal to zero
-        niftyvoldata = niftyvoldata[
-            (niftyvoldata["niftyvolume_diff"] > 0)
-            & (niftyvoldata["niftybuyordersdiff"] > 0)
-            & (niftyvoldata["niftysellordersdiff"] > 0)
-        ]
-        niftyturnoverdata = niftyturnoverdata[
-            (niftyturnoverdata["niftyturnoverdiff"] > 0)
-            & (niftyturnoverdata["niftyturnovervolumediff"] > 0)
-        ]
-        niftyfutturnoverdata = niftyfutturnoverdata[
-            (niftyfutturnoverdata["niftyfutturnoverdiff"] > 0)
-            & (niftyfutturnoverdata["niftyfutturnovervolumediff"] > 0)
-        ]
+        # niftyvoldata = niftyvoldata[
+        #     (niftyvoldata["niftyvolumediff"] > 0)
+        #     # & (niftyvoldata["niftybuyordersdiff"] > 0)
+        #     # & (niftyvoldata["niftysellordersdiff"] > 0)
+        # ]
+        # niftyturnoverdata = niftyturnoverdata[
+        #     (niftyturnoverdata["niftyturnoverdiff"] > 0)
+        #     & (niftyturnoverdata["niftyturnovervolumediff"] > 0)
+        # ]
+        # niftyfutturnoverdata = niftyfutturnoverdata[
+        #     (niftyfutturnoverdata["niftyfutturnoverdiff"] > 0)
+        #     & (niftyfutturnoverdata["niftyfutturnovervolumediff"] > 0)
+        # ]
 
         # Merging data
         turnoverdata = pd.merge(
@@ -121,6 +126,8 @@ def main():
             on="time",
             how="inner",
         )
+        # Writing data to a CSV file
+        # data.to_csv("merged_data.csv", index=False)
 
         for ax in axs:
             ax.clear()
@@ -130,6 +137,7 @@ def main():
             data["niftyfutturnovervolumediff"],
             color="#9598a1",
         )
+
         axs[1].bar(
             data["time"],
             data["niftyturnovervolumediff"],
@@ -149,6 +157,11 @@ def main():
             data["time"],
             data["niftysellordersdiff"],
             color="#f23645",
+        )
+        axs[5].bar(
+            data["time"],
+            data["scaled_niftybuyorders"],
+            color=data["net_orders_color"],
         )
 
         for ax in axs:
@@ -176,13 +189,19 @@ def main():
             fontsize=12,
         )
         axs[3].set_title(
-            "Nifty Buy Orders",
+            "Nifty Optin Chain Buy Orders Change",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[4].set_title(
-            "Nifty Sell Orders",
+            "Nifty Optin Chain Sell Orders Change",
+            loc="left",
+            color="#9598a1",
+            fontsize=12,
+        )
+        axs[5].set_title(
+            "Nifty Optin Chain Net Orders",
             loc="left",
             color="#9598a1",
             fontsize=12,

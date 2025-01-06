@@ -8,6 +8,7 @@ import csv
 import json
 import os
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -28,22 +29,30 @@ def get_session(url, base_url, headers_ref):
             time.sleep(3)
 
 
-def marketstatus(base_url, headers_ref, symbol):
+def marketstatus():
     """This function checks market status and returns the status"""
-    while True:
-        try:
-            for item in json.loads(
-                get_session(
-                    base_url + "api/marketStatus",
-                    base_url,
-                    headers_ref,
-                ).content
-            )["marketState"]:
-                if item["index"] == "NIFTY 50":
-                    return item["marketStatus"]
-        except Exception:
-            print("Exception while fetching market status for", symbol)
-            time.sleep(3)
+    if (
+        datetime.strptime("09:15:00", "%H:%M:%S").time()
+        <= datetime.now().time()
+        <= datetime.strptime("15:34:00", "%H:%M:%S").time()
+    ):
+        return "Open"
+    else:
+        return "Close"
+    # while True:
+    #     try:
+    #         for item in json.loads(
+    #             get_session(
+    #                 base_url + "api/marketStatus",
+    #                 base_url,
+    #                 headers_ref,
+    #             ).content
+    #         )["marketState"]:
+    #             if item["index"] == "NIFTY 50":
+    #                 return item["marketStatus"]
+    #     except Exception:
+    #         print("Exception while fetching market status for", symbol)
+    #         time.sleep(3)
 
 
 def sort_csv(df):
@@ -61,51 +70,51 @@ def sort_csv(df):
     return df
 
 
-def calculate_diff(csvfile, csv_columns, line, symbol):
+def calculate_diff(csvfile, line, symbol):
     """This function calculates the difference between the last two rows"""
     df = pd.read_csv(csvfile, skip_blank_lines=True)
     if symbol == "niftyvolume":
-        if len(df) > 1:
-            # Get the last row index
-            last_index = len(df) - 1
-            line["niftyvolumediff"] = line["volume"] - df.loc[last_index, "niftyvolume"]
-            line["niftybuyordersdiff"] = (
-                line["buyorders"] - df.loc[last_index, "niftybuyorders"]
-            )
-            line["niftysellordersdiff"] = (
-                line["sellorders"] - df.loc[last_index, "niftysellorders"]
-            )
+        if 0 in df["niftyvolumediff"].values:
+            line["niftyvolumediff"] = line["volume"] - df["niftyvolume"].iloc[-1]
         else:
             line["niftyvolumediff"] = 0
+        if 0 in df["niftybuyordersdiff"].values:
+            line["niftybuyordersdiff"] = (
+                line["buyorders"] - df["niftybuyorders"].iloc[-1]
+            )
+        else:
             line["niftybuyordersdiff"] = 0
+        if 0 in df["niftysellordersdiff"].values:
+            line["niftysellordersdiff"] = (
+                line["sellorders"] - df["niftysellorders"].iloc[-1]
+            )
+        else:
             line["niftysellordersdiff"] = 0
     elif symbol == "niftyfutturnover":
-        if len(df) > 1:
-            # Get the last row index
-            last_index = len(df) - 1
+        if 0 in df["niftyfutturnoverdiff"].values:
             line["niftyfutturnoverdiff"] = (
-                line["turnover"] - df.loc[last_index, "niftyfutturnover"]
-            )
-            line["niftyfutturnovervolumediff"] = (
-                line["turnovervolume"] - df.loc[last_index, "niftyfutturnovervolume"]
+                line["turnover"] - df["niftyfutturnover"].iloc[-1]
             )
         else:
             line["niftyfutturnoverdiff"] = 0
-            line["niftyfutturnovervolumediff"] = 0
-    else:
-        if len(df) > 1:
-            # Get the last row index
-            last_index = len(df) - 1
-            line["niftyturnoverdiff"] = (
-                line["turnover"] - df.loc[last_index, "niftyturnover"]
-            )
-            line["niftyturnovervolumediff"] = (
-                line["turnovervolume"] - df.loc[last_index, "niftyturnovervolume"]
+        if 0 in df["niftyfutturnovervolumediff"].values:
+            line["niftyfutturnovervolumediff"] = (
+                line["turnovervolume"] - df["niftyfutturnovervolume"].iloc[-1]
             )
         else:
+            line["niftyfutturnovervolumediff"] = 0
+    else:
+        if 0 in df["niftyturnoverdiff"].values:
+            line["niftyturnoverdiff"] = line["turnover"] - df["niftyturnover"].iloc[-1]
+        else:
             line["niftyturnoverdiff"] = 0
+        if 0 in df["niftyturnovervolumediff"].values:
+            line["niftyturnovervolumediff"] = (
+                line["turnovervolume"] - df["niftyturnovervolume"].iloc[-1]
+            )
+        else:
             line["niftyturnovervolumediff"] = 0
-    line_list = [line[key] for key in csv_columns]
+    line_list = list(line.values())
     return line_list
 
 
@@ -141,23 +150,36 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
         with open(csvfile, "w", encoding="utf-8") as f_name:
             f_name.write(",".join(csv_columns))
 
-    while marketstatus(base_url, call_headers, symbol) == "Open":
+    while marketstatus() == "Open":
         # set session
         try:
             response = get_session(base_url + rest_url, base_url, call_headers)
+        except Exception:
+            print("Exception while fetching response for", symbol)
+            continue
+        try:
             if response.status_code != 200:
-                raise Exception(response.status_code, symbol)
-            if datatype == "volume":
-                record = json.loads(response.content).get("records")
-            else:
-                record = json.loads(response.content)
+                print("Error while status code for", symbol)
+                continue
+                # raise Exception
+            try:
+                if datatype == "volume":
+                    record = json.loads(response.content).get("records")
+                else:
+                    record = json.loads(response.content)
+            except Exception:
+                print("Exception while fetching record for", symbol)
+                continue
             if record is None:
-                raise Exception("None record for", symbol)
+                print("None record for", symbol)
+                continue
+                # raise Exception("None record for", symbol)
 
             timestamp = record["timestamp"][12:17]
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             if datatype == "volume":
                 if process_data(record) is None:
+                    print("Exception while processing data for", symbol)
                     continue
                 volume, buyorders, sellorders = process_data(record)
                 if volume < 0 or volume in df[symbol].values:
@@ -188,7 +210,8 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 df = df[df["time"] != timestamp]
 
             sort_csv(df).to_csv(csvfile, index=False)
-            line_list = calculate_diff(csvfile, csv_columns, line, symbol)
+            line_list = calculate_diff(csvfile, line, symbol)
+            # line_list = list(line.values())
             time.sleep(1)
             # Write data to csv
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
@@ -196,7 +219,10 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             sort_csv(df).to_csv(csvfile, index=False)
             time.sleep(3)
-        except Exception:
+        except Exception as e:
+            tb = traceback.extract_tb(e.__traceback__)
+            code_line_number = tb[-1].lineno
+            print("General Exeption: Line number:", code_line_number)
             time.sleep(5)
             continue
     print("Market closed for", symbol)
@@ -217,7 +243,7 @@ def main():
     }
     website_name = "https://www.nseindia.com/"
 
-    while marketstatus(website_name, headers, "initial check") == "Close":
+    while marketstatus() == "Close":
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
