@@ -129,15 +129,12 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                     "timestamp": timestamp,
                 }
             else:
-                turnover = 0
                 turnovervolume = 0
                 for data in record["data"]:
-                    turnover += int(data["totalTurnover"])
                     turnovervolume += int(data["volume"])
                 if turnovervolume in df[symbol].values:
                     continue
                 line = {
-                    "turnover": turnover,
                     "turnovervolume": turnovervolume,
                     "timestamp": timestamp,
                 }
@@ -189,7 +186,6 @@ def main():
         "nifty_turnover": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
             "csv_columns": [
-                "niftyturnover",
                 "niftyturnovervolume",
                 "time",
             ],
@@ -199,7 +195,6 @@ def main():
         "nifty_fut_turnover": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
             "csv_columns": [
-                "niftyfutturnover",
                 "niftyfutturnovervolume",
                 "time",
             ],
