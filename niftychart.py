@@ -30,9 +30,11 @@ def main():
     for ax in axs:
         ax.set_facecolor("#131722")
 
-    csv_file = str(datetime.today().date()) + ".csv"
+    today = datetime.today().date().strftime("%d-%b-%Y")
+    csv_file = str(today) + ".csv"
     cwd = os.getcwd()
     # csv_file = "03-Jan-2025.csv"
+    chart_name = os.path.splitext(os.path.basename(__file__))[0]
 
     def animatechart(i):
         folder_path = os.path.join(cwd, "history", "niftyvolume")
@@ -45,7 +47,7 @@ def main():
         niftyturnover_csv = os.path.join(folder_path, csv_file)
 
         chart_path = os.path.join(cwd, "images")
-        chart = os.path.join(chart_path, "chart.png")
+        chart = os.path.join(chart_path, chart_name + ".png")
         while True:
             try:
                 niftyvoldata = pd.read_csv(
@@ -65,6 +67,20 @@ def main():
                 continue
             break
 
+        # get the difference of the columns
+        niftyvoldata["niftyvolumediff"] = niftyvoldata["niftyvolume"].diff().fillna(0)
+        niftyvoldata["niftybuyordersdiff"] = (
+            niftyvoldata["niftybuyorders"].diff().fillna(0)
+        )
+        niftyvoldata["niftysellordersdiff"] = (
+            niftyvoldata["niftysellorders"].diff().fillna(0)
+        )
+        niftyturnoverdata["niftyturnovervolumediff"] = (
+            niftyturnoverdata["niftyturnovervolume"].diff().fillna(0)
+        )
+        niftyfutturnoverdata["niftyfutturnovervolumediff"] = (
+            niftyfutturnoverdata["niftyfutturnovervolume"].diff().fillna(0)
+        )
         # Scale niftybuyorders & niftysellorders columns
         min_value_buy = niftyvoldata["niftybuyorders"].min()
         max_value_buy = niftyvoldata["niftybuyorders"].max()
@@ -122,7 +138,7 @@ def main():
             turnoverdata,
             on="time",
             how="inner",
-        ).iloc[:-4]
+        )
 
         for ax in axs:
             ax.clear()

@@ -50,57 +50,6 @@ def sort_csv(df):
     return df
 
 
-def calculate_diff(csvfile, line, symbol):
-    """This function calculates the difference between the last two rows"""
-    df = pd.read_csv(csvfile, skip_blank_lines=True)
-    if symbol == "niftyvolume":
-        if 0 in df["niftyvolumediff"].values:
-            line["niftyvolumediff"] = line["volume"] - df["niftyvolume"].iloc[-1]
-        else:
-            line["niftyvolumediff"] = 0
-        if 0 in df["niftybuyordersdiff"].values:
-            line["niftybuyordersdiff"] = (
-                line["buyorders"] - df["niftybuyorders"].iloc[-1]
-            )
-        else:
-            line["niftybuyordersdiff"] = 0
-        if 0 in df["niftysellordersdiff"].values:
-            line["niftysellordersdiff"] = (
-                line["sellorders"] - df["niftysellorders"].iloc[-1]
-            )
-        else:
-            line["niftysellordersdiff"] = 0
-    elif symbol == "niftyfutturnover":
-        if 0 in df["niftyfutturnoverdiff"].values:
-            line["niftyfutturnoverdiff"] = (
-                line["turnover"] - df["niftyfutturnover"].iloc[-1]
-            )
-        else:
-            line["niftyfutturnoverdiff"] = 0
-        if 0 in df["niftyfutturnovervolumediff"].values:
-            line["niftyfutturnovervolumediff"] = (
-                line["turnovervolume"] - df["niftyfutturnovervolume"].iloc[-1]
-            )
-        else:
-            line["niftyfutturnovervolumediff"] = 0
-    else:
-        if 0 in df["niftyturnoverdiff"].values:
-            line["niftyturnoverdiff"] = line["turnover"] - df["niftyturnover"].iloc[-1]
-        else:
-            line["niftyturnoverdiff"] = 0
-        if 0 in df["niftyturnovervolumediff"].values:
-            line["niftyturnovervolumediff"] = (
-                line["turnovervolume"] - df["niftyturnovervolume"].iloc[-1]
-            )
-        else:
-            line["niftyturnovervolumediff"] = 0
-    line_list = [
-        round(value) if isinstance(value, (float, int)) else value
-        for value in line.values()
-    ]
-    return line_list
-
-
 def process_data(record):
     """Processing data from the record"""
     try:
@@ -125,9 +74,10 @@ def process_data(record):
 def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
     """This module contains code for processing market data."""
     time.sleep(10)
+    today = datetime.today().date().strftime("%d-%b-%Y")
     folder_path = os.path.join(os.getcwd(), "history", symbol)
     os.makedirs(folder_path, exist_ok=True)
-    csvfile = os.path.join(folder_path, str(datetime.today().date()) + ".csv")
+    csvfile = os.path.join(folder_path, str(today) + ".csv")
 
     # Check if csv file exists. If don't then create one
     if not os.path.exists(csvfile):
@@ -157,9 +107,12 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
             if record is None:
                 print("None record for", symbol)
                 continue
-                # raise Exception("None record for", symbol)
 
             timestamp = record["timestamp"][12:17]
+            datestamp = record["timestamp"].split(" ")[0]
+            if datestamp != str(today):
+                print("Data is not yet updated for", symbol)
+                continue
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             if datatype == "volume":
                 if process_data(record) is None:
@@ -194,7 +147,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 df = df[df["time"] != timestamp]
 
             sort_csv(df).to_csv(csvfile, index=False)
-            line_list = calculate_diff(csvfile, line, symbol)
+            line_list = list(line.values())
             time.sleep(1)
             # Write data to csv
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
@@ -239,8 +192,6 @@ def main():
                 "niftyturnover",
                 "niftyturnovervolume",
                 "time",
-                "niftyturnoverdiff",
-                "niftyturnovervolumediff",
             ],
             "symbol": "niftyturnover",
             "datatype": "turnover",
@@ -251,8 +202,6 @@ def main():
                 "niftyfutturnover",
                 "niftyfutturnovervolume",
                 "time",
-                "niftyfutturnoverdiff",
-                "niftyfutturnovervolumediff",
             ],
             "symbol": "niftyfutturnover",
             "datatype": "turnover",
@@ -265,9 +214,6 @@ def main():
                 "niftysellorders",
                 "netorders",
                 "time",
-                "niftyvolumediff",
-                "niftybuyordersdiff",
-                "niftysellordersdiff",
             ],
             "symbol": "niftyvolume",
             "datatype": "volume",
