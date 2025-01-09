@@ -10,6 +10,32 @@ import pandas as pd
 import requests
 
 
+def tasks():
+    return {
+        "nifty_opt": {
+            "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
+            "csv_columns": ["niftyoptvolume", "time"],
+            "symbol": "niftyopt",
+        },
+        "nifty_fut": {
+            "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
+            "csv_columns": ["niftyfutvolume", "time"],
+            "symbol": "niftyfut",
+        },
+        "nifty_chain": {
+            "rest_url": "api/option-chain-indices?symbol=NIFTY",
+            "csv_columns": [
+                "niftychainvolume",
+                "time",
+                "niftychainbuyorders",
+                "niftychainsellorders",
+                "netorders",
+            ],
+            "symbol": "niftychain",
+        },
+    }
+
+
 def get_session(url, base_url, headers_ref):
     session = requests.Session()
     while True:
@@ -139,31 +165,9 @@ def main():
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
-    tasks = {
-        "nifty_opt": {
-            "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
-            "csv_columns": ["niftyoptvolume", "time"],
-            "symbol": "niftyopt",
-        },
-        "nifty_fut": {
-            "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
-            "csv_columns": ["niftyfutvolume", "time"],
-            "symbol": "niftyfut",
-        },
-        "nifty_chain": {
-            "rest_url": "api/option-chain-indices?symbol=NIFTY",
-            "csv_columns": [
-                "niftychainvolume",
-                "time",
-                "niftychainbuyorders",
-                "niftychainsellorders",
-                "netorders",
-            ],
-            "symbol": "niftychain",
-        },
-    }
+
     with ThreadPoolExecutor() as executor:
-        for value in tasks.values():
+        for value in tasks().values():
             executor.submit(
                 get_data,
                 website_name,

@@ -1,5 +1,3 @@
-""" This script gets data from a website and writes it to a csv file."""
-
 import os
 from datetime import datetime
 
@@ -8,11 +6,10 @@ import mplcursors
 import pandas as pd
 from matplotlib.animation import FuncAnimation
 
+from getdata import tasks
+
 
 def main():
-    """
-    This function runs the script.
-    """
     plt.rcParams["toolbar"] = "None"
     # Set the background color of the entire window
     plt.rcParams["figure.facecolor"] = "#131722"
@@ -32,34 +29,39 @@ def main():
 
     today = datetime.today().date().strftime("%d-%b-%Y")
     csv_file = str(today) + ".csv"
+    tsk = tasks()
+    niftyopt = tsk["nifty_opt"]["symbol"]
+    niftyfut = tsk["nifty_fut"]["symbol"]
+    niftychain = tsk["nifty_chain"]["symbol"]
     cwd = os.getcwd()
     # csv_file = "03-Jan-2025.csv"
     chart_name = os.path.splitext(os.path.basename(__file__))[0]
 
     def animatechart(i):
-        folder_path = os.path.join(cwd, "history", "niftyvolume")
-        niftyvolume_csv = os.path.join(folder_path, csv_file)
 
-        folder_path = os.path.join(cwd, "history", "niftyfutturnover")
-        niftyfutturnover_csv = os.path.join(folder_path, csv_file)
+        folder_path = os.path.join(cwd, "history", niftyopt)
+        niftyopt_csv = os.path.join(folder_path, csv_file)
 
-        folder_path = os.path.join(cwd, "history", "niftyturnover")
-        niftyturnover_csv = os.path.join(folder_path, csv_file)
+        folder_path = os.path.join(cwd, "history", niftyfut)
+        niftyfut_csv = os.path.join(folder_path, csv_file)
+
+        folder_path = os.path.join(cwd, "history", niftychain)
+        niftychain_csv = os.path.join(folder_path, csv_file)
 
         chart_path = os.path.join(cwd, "images")
         chart = os.path.join(chart_path, chart_name + ".png")
         while True:
             try:
-                niftyvoldata = pd.read_csv(
-                    niftyvolume_csv,
+                niftyoptdata = pd.read_csv(
+                    niftyopt_csv,
                     skip_blank_lines=True,
                 )
-                niftyfutturnoverdata = pd.read_csv(
-                    niftyfutturnover_csv,
+                niftyfutdata = pd.read_csv(
+                    niftyfut_csv,
                     skip_blank_lines=True,
                 )
-                niftyturnoverdata = pd.read_csv(
-                    niftyturnover_csv,
+                niftychaindata = pd.read_csv(
+                    niftychain_csv,
                     skip_blank_lines=True,
                 )
             except Exception:
@@ -68,74 +70,61 @@ def main():
             break
 
         # get the difference of the columns
-        niftyvoldata["niftyvolumediff"] = niftyvoldata["niftyvolume"].diff().fillna(0)
-        niftyvoldata["niftybuyordersdiff"] = (
-            niftyvoldata["niftybuyorders"].diff().fillna(0)
+        niftyoptdata[f"{niftyopt}volumediff"] = (
+            niftyoptdata[f"{niftyopt}volume"].diff().fillna(0)
         )
-        niftyvoldata["niftysellordersdiff"] = (
-            niftyvoldata["niftysellorders"].diff().fillna(0)
+        niftyfutdata[f"{niftyfut}volumediff"] = (
+            niftyfutdata[f"{niftyfut}volume"].diff().fillna(0)
         )
-        niftyturnoverdata["niftyturnovervolumediff"] = (
-            niftyturnoverdata["niftyturnovervolume"].diff().fillna(0)
+        niftychaindata[f"{niftychain}volumediff"] = (
+            niftychaindata[f"{niftychain}volume"].diff().fillna(0)
         )
-        niftyfutturnoverdata["niftyfutturnovervolumediff"] = (
-            niftyfutturnoverdata["niftyfutturnovervolume"].diff().fillna(0)
+        niftychaindata[f"{niftychain}buyordersdiff"] = (
+            niftychaindata[f"{niftychain}buyorders"].diff().fillna(0)
+        )
+        niftychaindata[f"{niftychain}sellordersdiff"] = (
+            niftychaindata[f"{niftychain}sellorders"].diff().fillna(0)
         )
         # Scale niftybuyorders & niftysellorders columns
-        min_value_buy = niftyvoldata["niftybuyorders"].min()
-        max_value_buy = niftyvoldata["niftybuyorders"].max()
+        min_value_buy = niftychaindata[f"{niftychain}buyorders"].min()
+        max_value_buy = niftychaindata[f"{niftychain}buyorders"].max()
 
-        niftyvoldata["scaled_niftybuyorders"] = (
-            niftyvoldata["niftybuyorders"] - min_value_buy
+        niftychaindata[f"scaled_{niftychain}buyorders"] = (
+            niftychaindata[f"{niftychain}buyorders"] - min_value_buy
         ) / (max_value_buy - min_value_buy) * 999 + 1
 
-        min_value_sell = niftyvoldata["niftysellorders"].min()
-        max_value_sell = niftyvoldata["niftysellorders"].max()
+        min_value_sell = niftychaindata[f"{niftychain}sellorders"].min()
+        max_value_sell = niftychaindata[f"{niftychain}sellorders"].max()
 
-        niftyvoldata["scaled_niftysellorders"] = (
-            niftyvoldata["niftysellorders"] - min_value_sell
+        niftychaindata[f"scaled_{niftychain}sellorders"] = (
+            niftychaindata[f"{niftychain}sellorders"] - min_value_sell
         ) / (max_value_sell - min_value_sell) * 999 + 1
 
-        niftyvoldata["color"] = (
+        niftychaindata["color"] = (
             "red"
-            if niftyvoldata["netorders"].diff().fillna(0).lt(0).sum()
-            > niftyvoldata["netorders"].diff().gt(0).sum()
+            if niftychaindata["netorders"].diff().fillna(0).lt(0).sum()
+            > niftychaindata["netorders"].diff().gt(0).sum()
             else "green"
         )
-        niftyvoldata["net_orders_color"] = (
+        niftychaindata["net_orders_color"] = (
             "green"
-            if niftyvoldata["netorders"].diff().fillna(0).lt(0).sum()
-            > niftyvoldata["netorders"].diff().gt(0).sum()
+            if niftychaindata["netorders"].diff().fillna(0).lt(0).sum()
+            > niftychaindata["netorders"].diff().gt(0).sum()
             else "red"
         )
 
-        # Remove rows where the difference is less than or equal to zero
-        # niftyvoldata = niftyvoldata[
-        #     (niftyvoldata["niftyvolumediff"] > 0)
-        #     # & (niftyvoldata["niftybuyordersdiff"] > 0)
-        #     # & (niftyvoldata["niftysellordersdiff"] > 0)
-        # ]
-        # niftyturnoverdata = niftyturnoverdata[
-        #     (niftyturnoverdata["niftyturnoverdiff"] > 0)
-        #     & (niftyturnoverdata["niftyturnovervolumediff"] > 0)
-        # ]
-        # niftyfutturnoverdata = niftyfutturnoverdata[
-        #     (niftyfutturnoverdata["niftyfutturnoverdiff"] > 0)
-        #     & (niftyfutturnoverdata["niftyfutturnovervolumediff"] > 0)
-        # ]
-
         # Merging data
-        turnoverdata = pd.merge(
-            niftyturnoverdata,
-            niftyfutturnoverdata,
+        opt_fut_data = pd.merge(
+            niftyoptdata,
+            niftyfutdata,
             on="time",
             how="inner",
         )
 
         # Merging data
         data = pd.merge(
-            niftyvoldata,
-            turnoverdata,
+            opt_fut_data,
+            niftychaindata,
             on="time",
             how="inner",
         )
@@ -145,33 +134,33 @@ def main():
 
         axs[0].bar(
             data["time"],
-            data["niftyfutturnovervolumediff"],
+            data[f"{niftyfut}volumediff"],
             color="#9598a1",
         )
 
         axs[1].bar(
             data["time"],
-            data["niftyturnovervolumediff"],
+            data[f"{niftyopt}volumediff"],
             color="#9598a1",
         )
         axs[2].bar(
             data["time"],
-            data["niftyvolumediff"],
+            data[f"{niftychain}volumediff"],
             color=data["color"],
         )
         axs[3].bar(
             data["time"],
-            data["niftybuyordersdiff"],
+            data[f"{niftychain}buyordersdiff"],
             color="#089981",
         )
         axs[4].bar(
             data["time"],
-            data["niftysellordersdiff"],
+            data[f"{niftychain}sellordersdiff"],
             color="#f23645",
         )
         axs[5].bar(
             data["time"],
-            data["scaled_niftybuyorders"],
+            data[f"scaled_{niftychain}buyorders"],
             color=data["net_orders_color"],
         )
 
@@ -182,13 +171,13 @@ def main():
             ax.autoscale(tight=True)
 
         axs[0].set_title(
-            "Nifty Future Turnover Volume",
+            "Nifty Future Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[1].set_title(
-            "Nifty Options Turnover Volume",
+            "Nifty Options Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
@@ -212,7 +201,7 @@ def main():
             fontsize=12,
         )
         axs[5].set_title(
-            "Nifty Optin Chain Net Orders",
+            "Nifty Option Chain Net Orders",
             loc="left",
             color="#9598a1",
             fontsize=12,
