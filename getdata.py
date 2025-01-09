@@ -71,7 +71,7 @@ def process_data(record):
         return None
 
 
-def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
+def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
     """This module contains code for processing market data."""
     time.sleep(10)
     today = datetime.today().date().strftime("%d-%b-%Y")
@@ -97,7 +97,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 continue
                 # raise Exception
             try:
-                if datatype == "volume":
+                if symbol == "niftychain":
                     record = json.loads(response.content).get("records")
                 else:
                     record = json.loads(response.content)
@@ -114,48 +114,41 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, datatype):
                 print("Data is not yet updated for", symbol)
                 continue
             df = pd.read_csv(csvfile, skip_blank_lines=True)
-            if datatype == "volume":
+            if symbol == "niftychain":
                 if process_data(record) is None:
                     print("Exception while processing data for", symbol)
                     continue
                 volume, buyorders, sellorders = process_data(record)
-                if volume < 0 or volume in df[symbol].values:
-                    continue
-                line = {
-                    "volume": volume,
-                    "buyorders": buyorders,
-                    "sellorders": sellorders,
-                    "netorders": buyorders - sellorders,  # Derived field
-                    "timestamp": timestamp,
-                }
             else:
-                turnovervolume = 0
+                volume = 0
                 for data in record["data"]:
-                    turnovervolume += int(data["volume"])
-                if turnovervolume in df[symbol].values:
-                    continue
-                line = {
-                    "turnovervolume": turnovervolume,
-                    "timestamp": timestamp,
-                }
+                    volume += int(data["volume"])
+            row = {
+                "volume": volume,
+                "timestamp": timestamp,
+            }
 
+            if volume < 0 or volume in df[f"{symbol}volume"].values:
+                continue
             # check if timestamp is already present
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
 
             sort_csv(df).to_csv(csvfile, index=False)
-            line_list = list(line.values())
+            row = list(row.values())
+            if symbol == "niftychain":
+                row.extend([buyorders, sellorders, buyorders - sellorders])
             time.sleep(1)
             # Write data to csv
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
-                csv.writer(f_name).writerow(line_list)
+                csv.writer(f_name).writerow(row)
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             sort_csv(df).to_csv(csvfile, index=False)
             time.sleep(3)
         except Exception as e:
             tb = traceback.extract_tb(e.__traceback__)
             code_line_number = tb[-1].lineno
-            print("General Exeption: Line number:", code_line_number)
+            print(f"General Exeption: Line number:{code_line_number}\n", e)
             time.sleep(5)
             continue
     print("Market closed for", symbol)
@@ -183,35 +176,32 @@ def main():
 
     # Combined task list
     tasks = {
-        "nifty_turnover": {
+        "nifty_opt": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
             "csv_columns": [
-                "niftyturnovervolume",
+                "niftyoptvolume",
                 "time",
             ],
-            "symbol": "niftyturnover",
-            "datatype": "turnover",
+            "symbol": "niftyopt",
         },
-        "nifty_fut_turnover": {
+        "nifty_fut": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
             "csv_columns": [
-                "niftyfutturnovervolume",
+                "niftyfutvolume",
                 "time",
             ],
-            "symbol": "niftyfutturnover",
-            "datatype": "turnover",
+            "symbol": "niftyfut",
         },
-        "nifty_volume": {
+        "nifty_chain": {
             "rest_url": "api/option-chain-indices?symbol=NIFTY",
             "csv_columns": [
-                "niftyvolume",
-                "niftybuyorders",
-                "niftysellorders",
-                "netorders",
+                "niftychainvolume",
                 "time",
+                "niftychainbuyorders",
+                "niftychainsellorders",
+                "netorders",
             ],
-            "symbol": "niftyvolume",
-            "datatype": "volume",
+            "symbol": "niftychain",
         },
     }
 
@@ -224,7 +214,6 @@ def main():
                 headers,
                 task["csv_columns"],
                 task["symbol"],
-                task["datatype"],
             )
 
 
