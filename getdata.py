@@ -36,11 +36,7 @@ def sort_csv(df):
     df["time"] = df["time"].str.strip()
     df = df.sort_values(
         by="time",
-        key=lambda x: pd.to_datetime(
-            x,
-            format="%H:%M",
-            errors="coerce",
-        ),
+        key=lambda x: pd.to_datetime(x, format="%H:%M", errors="coerce"),
     )
     return df
 
@@ -106,21 +102,14 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
                 volume = 0
                 for data in record["data"]:
                     volume += int(data["volume"])
-            row = {
-                "volume": volume,
-                "timestamp": timestamp,
-            }
-
             if volume < 0 or volume in df[f"{symbol}volume"].values:
                 continue
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
-
             sort_csv(df).to_csv(csvfile, index=False)
-            row = list(row.values())
+            row = [volume, timestamp]
             if symbol == "niftychain":
-                row.extend([buyorders, sellorders, buyorders - sellorders])
-            time.sleep(1)
+                row += [buyorders, sellorders, buyorders - sellorders]
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
                 csv.writer(f_name).writerow(row)
             df = pd.read_csv(csvfile, skip_blank_lines=True)
@@ -146,13 +135,10 @@ def main():
         "accept-encoding": "gzip, deflate, br",
     }
     website_name = "https://www.nseindia.com/"
-
     while marketstatus() == "Closed":
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
-
-    # Combined task list
     tasks = {
         "nifty_opt": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
@@ -176,16 +162,15 @@ def main():
             "symbol": "niftychain",
         },
     }
-
     with ThreadPoolExecutor() as executor:
-        for task in tasks.values():
+        for value in tasks.values():
             executor.submit(
                 get_data,
                 website_name,
-                task["rest_url"],
+                value["rest_url"],
                 headers,
-                task["csv_columns"],
-                task["symbol"],
+                value["csv_columns"],
+                value["symbol"],
             )
 
 
