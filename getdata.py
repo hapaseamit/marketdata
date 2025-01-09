@@ -160,7 +160,6 @@ def main():
         "accept-language": "en-GB,en;q=0.9,en-US;q=0.8,mr;q=0.7",
         "accept-encoding": "gzip, deflate, br",
     }
-    website_name = "https://www.nseindia.com/"
     while marketstatus() == "Closed":
         print("Market is not opened yet!")
         time.sleep(3)
@@ -170,7 +169,7 @@ def main():
         for value in tasks().values():
             executor.submit(
                 get_data,
-                website_name,
+                "https://www.nseindia.com/",
                 value["rest_url"],
                 headers,
                 value["csv_columns"],
