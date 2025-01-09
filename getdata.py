@@ -85,25 +85,16 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
             f_name.write(",".join(csv_columns))
 
     while marketstatus() == "Open":
-        # set session
         try:
             response = get_session(base_url + rest_url, base_url, call_headers)
-        except Exception:
-            print("Exception while fetching response for", symbol)
-            continue
-        try:
             if response.status_code != 200:
                 print("Error while status code for", symbol)
                 continue
-                # raise Exception
-            try:
-                if symbol == "niftychain":
-                    record = json.loads(response.content).get("records")
-                else:
-                    record = json.loads(response.content)
-            except Exception:
-                print("Exception while fetching record for", symbol)
-                continue
+            record = (
+                json.loads(response.content).get("records")
+                if symbol == "niftychain"
+                else json.loads(response.content)
+            )
             if record is None:
                 print("None record for", symbol)
                 continue
@@ -115,10 +106,10 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
                 continue
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             if symbol == "niftychain":
-                if process_data(record) is None:
+                if (result := process_data(record)) is None:
                     print("Exception while processing data for", symbol)
                     continue
-                volume, buyorders, sellorders = process_data(record)
+                volume, buyorders, sellorders = result
             else:
                 volume = 0
                 for data in record["data"]:
@@ -148,7 +139,7 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
         except Exception as e:
             tb = traceback.extract_tb(e.__traceback__)
             code_line_number = tb[-1].lineno
-            print(f"General Exeption: Line number:{code_line_number}\n", e)
+            print(f"General Exeption: Line number:{code_line_number}")
             time.sleep(5)
             continue
     print("Market closed for", symbol)
