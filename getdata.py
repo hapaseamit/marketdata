@@ -1,5 +1,3 @@
-""" This script gets data from a website and writes it to a csv file."""
-
 import csv
 import json
 import os
@@ -13,12 +11,10 @@ import requests
 
 
 def get_session(url, base_url, headers_ref):
-    """This funcions returns a session object with cookies set."""
     session = requests.Session()
     while True:
         try:
-            request = session.get(base_url, headers=headers_ref)
-            cookies = dict(request.cookies)
+            cookies = dict(session.get(base_url, headers=headers_ref).cookies)
             return session.get(url, headers=headers_ref, cookies=cookies)
         except Exception:
             print("Exception while creating session for", url)
@@ -26,17 +22,16 @@ def get_session(url, base_url, headers_ref):
 
 
 def marketstatus():
-    """This function checks market status and returns the status"""
-    start_time = datetime.strptime("09:15:00", "%H:%M:%S").time()
-    end_time = datetime.strptime("15:34:00", "%H:%M:%S").time()
-    now = datetime.now().time()
-    if start_time <= now <= end_time:
-        return "Open"
-    return "Closed"
+    return (
+        "Open"
+        if datetime.strptime("09:15:00", "%H:%M:%S").time()
+        <= datetime.now().time()
+        <= datetime.strptime("15:34:00", "%H:%M:%S").time()
+        else "Closed"
+    )
 
 
 def sort_csv(df):
-    """This function sorts the csv file"""
     df = df.dropna(how="all")
     df["time"] = df["time"].str.strip()
     df = df.sort_values(
@@ -51,7 +46,6 @@ def sort_csv(df):
 
 
 def process_data(record):
-    """Processing data from the record"""
     try:
         volume, buyorders, sellorders = 0, 0, 0
         for data in record.get("data", []):
@@ -72,14 +66,12 @@ def process_data(record):
 
 
 def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
-    """This module contains code for processing market data."""
     time.sleep(10)
     today = datetime.today().date().strftime("%d-%b-%Y")
     folder_path = os.path.join(os.getcwd(), "history", symbol)
     os.makedirs(folder_path, exist_ok=True)
     csvfile = os.path.join(folder_path, str(today) + ".csv")
 
-    # Check if csv file exists. If don't then create one
     if not os.path.exists(csvfile):
         with open(csvfile, "w", encoding="utf-8") as f_name:
             f_name.write(",".join(csv_columns))
@@ -121,7 +113,6 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
 
             if volume < 0 or volume in df[f"{symbol}volume"].values:
                 continue
-            # check if timestamp is already present
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
 
@@ -130,7 +121,6 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
             if symbol == "niftychain":
                 row.extend([buyorders, sellorders, buyorders - sellorders])
             time.sleep(1)
-            # Write data to csv
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
                 csv.writer(f_name).writerow(row)
             df = pd.read_csv(csvfile, skip_blank_lines=True)
@@ -146,9 +136,6 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol):
 
 
 def main():
-    """
-    Main function to start threads for fetching and processing data.
-    """
     headers = {
         "user-agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -169,18 +156,12 @@ def main():
     tasks = {
         "nifty_opt": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
-            "csv_columns": [
-                "niftyoptvolume",
-                "time",
-            ],
+            "csv_columns": ["niftyoptvolume", "time"],
             "symbol": "niftyopt",
         },
         "nifty_fut": {
             "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
-            "csv_columns": [
-                "niftyfutvolume",
-                "time",
-            ],
+            "csv_columns": ["niftyfutvolume", "time"],
             "symbol": "niftyfut",
         },
         "nifty_chain": {
