@@ -160,8 +160,8 @@ def main():
         )
         axs[5].bar(
             data["time"],
-            data[f"scaled_{niftychain}buyorders"],
-            color=data["net_orders_color"],
+            data["netorders"],
+            color="#9598a1",
         )
 
         for ax in axs:
