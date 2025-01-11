@@ -44,6 +44,16 @@ def tasks():
     ]
 
 
+def marketstatus():
+    return (
+        "Open"
+        if datetime.strptime("09:15:00", "%H:%M:%S").time()
+        <= datetime.now().time()
+        <= datetime.strptime("15:34:00", "%H:%M:%S").time()
+        else "Closed"
+    )
+
+
 def get_session(url, base_url, headers_ref):
     session = requests.Session()
     while True:
@@ -53,16 +63,6 @@ def get_session(url, base_url, headers_ref):
         except Exception:
             print("Exception while creating session for", url)
             time.sleep(3)
-
-
-def marketstatus():
-    return (
-        "Open"
-        if datetime.strptime("09:15:00", "%H:%M:%S").time()
-        <= datetime.now().time()
-        <= datetime.strptime("15:34:00", "%H:%M:%S").time()
-        else "Closed"
-    )
 
 
 def sort_csv(df):
@@ -133,11 +133,10 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, strikes):
             if response.status_code != 200:
                 print("Error while status code for", symbol)
                 continue
-            record = (
-                json.loads(response.content).get("records")
-                if symbol == "niftychain"
-                else json.loads(response.content)
-            )
+            if symbol == "niftychain":
+                record = json.loads(response.content).get("records")
+            else:
+                record = json.loads(response.content)
             if record is None:
                 print("None record for", symbol)
                 continue
@@ -167,9 +166,8 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, strikes):
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
             sort_csv(df).to_csv(csvfile, index=False)
-            row = [timestamp, ce_volume, pe_volume]
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
-                csv.writer(f_name).writerow(row)
+                csv.writer(f_name).writerow([timestamp, ce_volume, pe_volume])
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             sort_csv(df).to_csv(csvfile, index=False)
             time.sleep(3)
