@@ -17,30 +17,31 @@ def tasks():
         "pe_price": 23500,
         "expiryDate": "16-Jan-2025",
     }
-    return {
-        "nifty_opt": {
-            "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
-            "csv_columns": ["time", "niftyoptvolume"],
-            "symbol": "niftyopt",
-            "strikes": strikes,
+    return [
+        {
+            "nifty_opt": {
+                "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
+                "csv_columns": [
+                    "time",
+                    "niftyoptcevolume",
+                    "niftyoptpevolume",
+                ],
+                "symbol": "niftyopt",
+                "strikes": strikes,
+            },
+            "nifty_chain": {
+                "rest_url": "api/option-chain-indices?symbol=NIFTY",
+                "csv_columns": [
+                    "time",
+                    "niftychaince_volume",
+                    "niftychainpe_volume",
+                ],
+                "symbol": "niftychain",
+                "strikes": strikes,
+            },
         },
-        "nifty_fut": {
-            "rest_url": "api/liveEquity-derivatives?index=nse50_fut",
-            "csv_columns": ["time", "niftyfutvolume"],
-            "symbol": "niftyfut",
-            "strikes": strikes,
-        },
-        "nifty_chain": {
-            "rest_url": "api/option-chain-indices?symbol=NIFTY",
-            "csv_columns": [
-                "time",
-                "ce_volume",
-                "pe_volume",
-            ],
-            "symbol": "niftychain",
-            "strikes": strikes,
-        },
-    }
+        strikes,
+    ]
 
 
 def get_session(url, base_url, headers_ref):
@@ -74,47 +75,44 @@ def sort_csv(df):
     return df
 
 
-def process_data(record, strikes):
+def process_opt_data(record, strikes):
     try:
-        ce_volume, pe_volume, count = 0, 0, 0
+        for data in record["data"]:
+            if data.get("expiryDate") == strikes.get("expiryDate"):
+                if data.get("optionType") == "Call":
+                    if data.get("strikePrice") == strikes.get("ce_price"):
+                        ce_volume = data.get("volume")
+                        break
+        for data in record["data"]:
+            if data.get("expiryDate") == strikes.get("expiryDate"):
+                if data.get("optionType") == "Put":
+                    if data.get("strikePrice") == strikes.get("pe_price"):
+                        pe_volume = data.get("volume")
+                        break
+        return (ce_volume, pe_volume)
+    except Exception as e:
+        return None
 
+
+def process_chain_data(record, strikes):
+    try:
         for data in record.get("data", []):
             if data.get("expiryDate") == strikes.get("expiryDate"):
                 if data.get("strikePrice") == strikes.get("ce_price"):
                     ce_volume = data.get("CE", {"totalTradedVolume": 0})[
                         "totalTradedVolume"
                     ]
-                    count += 1
+                    break
+        for data in record.get("data", []):
+            if data.get("expiryDate") == strikes.get("expiryDate"):
                 if data.get("strikePrice") == strikes.get("pe_price"):
                     pe_volume = data.get("PE", {"totalTradedVolume": 0})[
                         "totalTradedVolume"
                     ]
-                    count += 1
-                if count == 2:
-                    print(ce_volume, pe_volume)
                     break
         return (ce_volume, pe_volume)
-    except Exception:
-        return None
 
-
-def process_data_old(record):
-    try:
-        volume, buyorders, sellorders = 0, 0, 0
-        for data in record.get("data", []):
-            if data.get("expiryDate") in record.get("expiryDates", [])[:10]:
-                volume += (
-                    data.get("CE", {"totalTradedVolume": 0})["totalTradedVolume"]
-                    + data.get("PE", {"totalTradedVolume": 0})["totalTradedVolume"]
-                )
-                buyorders += (
-                    data.get("CE", {"totalBuyQuantity": 0})["totalBuyQuantity"]
-                ) + (data.get("PE", {"totalSellQuantity": 0})["totalSellQuantity"])
-                sellorders += (
-                    data.get("CE", {"totalSellQuantity": 0})["totalSellQuantity"]
-                ) + (data.get("PE", {"totalBuyQuantity": 0})["totalBuyQuantity"])
-        return (volume, buyorders, sellorders)
-    except Exception:
+    except Exception as e:
         return None
 
 
@@ -148,30 +146,28 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, strikes):
             datestamp = record["timestamp"].split(" ")[0]
             if datestamp != str(today):
                 print("Data is not yet updated for", symbol)
+                time.sleep(3)
+                os.system("clear")
                 continue
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             if symbol == "niftychain":
-                if (result := process_data(record, strikes)) is None:
+                if (result := process_chain_data(record, strikes)) == None:
                     print("Exception while processing data for", symbol)
                     continue
                 ce_volume, pe_volume = result
-                if ce_volume < 0 or ce_volume in df["cevolume"].values:
-                    continue
-                if pe_volume < 0 or pe_volume in df["pevolume"].values:
-                    continue
             else:
-                volume = 0
-                for data in record["data"]:
-                    volume += int(data["volume"])
-                if volume < 0 or volume in df[f"{symbol}volume"].values:
+                if (result := process_opt_data(record, strikes)) == None:
+                    print("Exception while processing data for", symbol)
                     continue
+                ce_volume, pe_volume = result
+            if ce_volume < 0 or ce_volume in df[f"{symbol}cevolume"].values:
+                continue
+            if pe_volume < 0 or pe_volume in df[f"{symbol}pevolume"].values:
+                continue
             if timestamp in df["time"].values:
                 df = df[df["time"] != timestamp]
             sort_csv(df).to_csv(csvfile, index=False)
-            if symbol == "niftychain":
-                row = [timestamp, ce_volume, pe_volume]
-            else:
-                row = [timestamp, volume]
+            row = [timestamp, ce_volume, pe_volume]
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
                 csv.writer(f_name).writerow(row)
             df = pd.read_csv(csvfile, skip_blank_lines=True)
@@ -202,7 +198,7 @@ def main():
         os.system("clear")
 
     with ThreadPoolExecutor() as executor:
-        for value in tasks().values():
+        for value in tasks()[0].values():
             executor.submit(
                 get_data,
                 "https://www.nseindia.com/",

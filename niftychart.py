@@ -29,10 +29,12 @@ def main():
 
     today = datetime.today().date().strftime("%d-%b-%Y")
     csv_file = str(today) + ".csv"
-    tsk = tasks()
+    tsk = tasks()[0]
     niftyopt = tsk["nifty_opt"]["symbol"]
-    niftyfut = tsk["nifty_fut"]["symbol"]
     niftychain = tsk["nifty_chain"]["symbol"]
+    ce_strike = tasks()[1]["ce_price"]
+    pe_strike = tasks()[1]["pe_price"]
+
     cwd = os.getcwd()
     # csv_file = "03-Jan-2025.csv"
     chart_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -41,9 +43,6 @@ def main():
 
         folder_path = os.path.join(cwd, "history", niftyopt)
         niftyopt_csv = os.path.join(folder_path, csv_file)
-
-        folder_path = os.path.join(cwd, "history", niftyfut)
-        niftyfut_csv = os.path.join(folder_path, csv_file)
 
         folder_path = os.path.join(cwd, "history", niftychain)
         niftychain_csv = os.path.join(folder_path, csv_file)
@@ -56,10 +55,6 @@ def main():
                     niftyopt_csv,
                     skip_blank_lines=True,
                 )
-                niftyfutdata = pd.read_csv(
-                    niftyfut_csv,
-                    skip_blank_lines=True,
-                )
                 niftychaindata = pd.read_csv(
                     niftychain_csv,
                     skip_blank_lines=True,
@@ -70,60 +65,22 @@ def main():
             break
 
         # get the difference of the columns
-        niftyoptdata[f"{niftyopt}volumediff"] = (
-            niftyoptdata[f"{niftyopt}volume"].diff().fillna(0)
+        niftyoptdata[f"{niftyopt}cevolumediff"] = (
+            niftyoptdata[f"{niftyopt}cevolume"].diff().fillna(0)
         )
-        niftyfutdata[f"{niftyfut}volumediff"] = (
-            niftyfutdata[f"{niftyfut}volume"].diff().fillna(0)
+        niftyoptdata[f"{niftyopt}pevolumediff"] = (
+            niftyoptdata[f"{niftyopt}pevolume"].diff().fillna(0)
         )
-        niftychaindata[f"{niftychain}volumediff"] = (
-            niftychaindata[f"{niftychain}volume"].diff().fillna(0)
+        niftychaindata[f"{niftychain}cevolumediff"] = (
+            niftychaindata[f"{niftychain}cevolume"].diff().fillna(0)
         )
-        niftychaindata[f"{niftychain}buyordersdiff"] = (
-            niftychaindata[f"{niftychain}buyorders"].diff().fillna(0)
-        )
-        niftychaindata[f"{niftychain}sellordersdiff"] = (
-            niftychaindata[f"{niftychain}sellorders"].diff().fillna(0)
-        )
-        # Scale niftybuyorders & niftysellorders columns
-        min_value_buy = niftychaindata[f"{niftychain}buyorders"].min()
-        max_value_buy = niftychaindata[f"{niftychain}buyorders"].max()
-
-        niftychaindata[f"scaled_{niftychain}buyorders"] = (
-            niftychaindata[f"{niftychain}buyorders"] - min_value_buy
-        ) / (max_value_buy - min_value_buy) * 999 + 1
-
-        min_value_sell = niftychaindata[f"{niftychain}sellorders"].min()
-        max_value_sell = niftychaindata[f"{niftychain}sellorders"].max()
-
-        niftychaindata[f"scaled_{niftychain}sellorders"] = (
-            niftychaindata[f"{niftychain}sellorders"] - min_value_sell
-        ) / (max_value_sell - min_value_sell) * 999 + 1
-
-        niftychaindata["color"] = (
-            "red"
-            if niftychaindata["netorders"].diff().fillna(0).lt(0).sum()
-            > niftychaindata["netorders"].diff().gt(0).sum()
-            else "green"
-        )
-        niftychaindata["net_orders_color"] = (
-            "green"
-            if niftychaindata["netorders"].diff().fillna(0).lt(0).sum()
-            > niftychaindata["netorders"].diff().gt(0).sum()
-            else "red"
-        )
-
-        # Merging data
-        opt_fut_data = pd.merge(
-            niftyoptdata,
-            niftyfutdata,
-            on="time",
-            how="inner",
+        niftychaindata[f"{niftychain}pevolumediff"] = (
+            niftychaindata[f"{niftychain}pevolume"].diff().fillna(0)
         )
 
         # Merging data
         data = pd.merge(
-            opt_fut_data,
+            niftyoptdata,
             niftychaindata,
             on="time",
             how="inner",
@@ -134,33 +91,22 @@ def main():
 
         axs[0].bar(
             data["time"],
-            data[f"{niftyfut}volumediff"],
+            data[f"{niftyopt}cevolumediff"],
             color="#9598a1",
         )
-
         axs[1].bar(
             data["time"],
-            data[f"{niftyopt}volumediff"],
+            data[f"{niftyopt}pevolumediff"],
             color="#9598a1",
         )
         axs[2].bar(
             data["time"],
-            data[f"{niftychain}volumediff"],
-            color=data["color"],
+            data[f"{niftychain}cevolumediff"],
+            color="#9598a1",
         )
         axs[3].bar(
             data["time"],
-            data[f"{niftychain}buyordersdiff"],
-            color="#089981",
-        )
-        axs[4].bar(
-            data["time"],
-            data[f"{niftychain}sellordersdiff"],
-            color="#f23645",
-        )
-        axs[5].bar(
-            data["time"],
-            data["netorders"],
+            data[f"{niftychain}pevolumediff"],
             color="#9598a1",
         )
 
@@ -171,37 +117,25 @@ def main():
             ax.autoscale(tight=True)
 
         axs[0].set_title(
-            "Nifty Future Volume",
+            f"Nifty Opt CE {ce_strike} Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[1].set_title(
-            "Nifty Options Volume",
+            f"Nifty Opt PE {pe_strike} Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[2].set_title(
-            "Nifty Option Chain Volume",
+            f"Nifty Chain CE {ce_strike} Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
         )
         axs[3].set_title(
-            "Nifty Optin Chain Buy Orders Change",
-            loc="left",
-            color="#9598a1",
-            fontsize=12,
-        )
-        axs[4].set_title(
-            "Nifty Optin Chain Sell Orders Change",
-            loc="left",
-            color="#9598a1",
-            fontsize=12,
-        )
-        axs[5].set_title(
-            "Nifty Option Chain Net Orders",
+            f"Nifty Chain PE {pe_strike} Volume",
             loc="left",
             color="#9598a1",
             fontsize=12,
