@@ -33,8 +33,8 @@ def tasks():
                 "rest_url": "api/option-chain-indices?symbol=NIFTY",
                 "csv_columns": [
                     "time",
-                    "niftychaince_volume",
-                    "niftychainpe_volume",
+                    "niftychaincevolume",
+                    "niftychainpevolume",
                 ],
                 "symbol": "niftychain",
                 "strikes": strikes,

@@ -16,7 +16,7 @@ def main():
 
     plt.style.use("fivethirtyeight")
     fig, axs = plt.subplots(
-        6,
+        4,
         1,
         figsize=(16, 8),
         sharex=True,
@@ -34,7 +34,6 @@ def main():
     niftychain = tsk["nifty_chain"]["symbol"]
     ce_strike = tasks()[1]["ce_price"]
     pe_strike = tasks()[1]["pe_price"]
-
     cwd = os.getcwd()
     # csv_file = "03-Jan-2025.csv"
     chart_name = os.path.splitext(os.path.basename(__file__))[0]
