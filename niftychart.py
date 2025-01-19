@@ -6,7 +6,7 @@ import mplcursors
 import pandas as pd
 from matplotlib.animation import FuncAnimation
 
-from getdata import tasks
+from .values import strikes, tasks
 
 
 def main():
@@ -29,11 +29,10 @@ def main():
 
     today = datetime.today().date().strftime("%d-%b-%Y")
     csv_file = str(today) + ".csv"
-    tsk = tasks()[0]
-    niftyopt = tsk["nifty_opt"]["symbol"]
-    niftychain = tsk["nifty_chain"]["symbol"]
-    ce_strike = tasks()[1]["ce_price"]
-    pe_strike = tasks()[1]["pe_price"]
+    niftyopt = tasks["nifty_opt"]["symbol"]
+    niftychain = tasks["nifty_chain"]["symbol"]
+    ce_strike = strikes["ce_price"]
+    pe_strike = strikes["pe_price"]
     cwd = os.getcwd()
     # csv_file = "03-Jan-2025.csv"
     chart_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -76,6 +75,15 @@ def main():
         niftychaindata[f"{niftychain}pevolumediff"] = (
             niftychaindata[f"{niftychain}pevolume"].diff().fillna(0)
         )
+
+        niftyoptdata = niftyoptdata[
+            (niftyoptdata[f"{niftyopt}cevolumediff"] > 0)
+            & (niftyoptdata[f"{niftyopt}pevolumediff"] > 0)
+        ]
+        niftychaindata = niftychaindata[
+            (niftychaindata[f"{niftychain}cevolumediff"] > 0)
+            & (niftychaindata[f"{niftychain}pevolumediff"] > 0)
+        ]
 
         # Merging data
         data = pd.merge(

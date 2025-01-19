@@ -10,38 +10,7 @@ from datetime import datetime
 import pandas as pd
 import requests
 
-
-def tasks():
-    strikes = {
-        "ce_price": 22500,
-        "pe_price": 23500,
-        "expiryDate": "16-Jan-2025",
-    }
-    return [
-        {
-            "nifty_opt": {
-                "rest_url": "api/liveEquity-derivatives?index=nse50_opt",
-                "csv_columns": [
-                    "time",
-                    "niftyoptcevolume",
-                    "niftyoptpevolume",
-                ],
-                "symbol": "niftyopt",
-                "strikes": strikes,
-            },
-            "nifty_chain": {
-                "rest_url": "api/option-chain-indices?symbol=NIFTY",
-                "csv_columns": [
-                    "time",
-                    "niftychaincevolume",
-                    "niftychainpevolume",
-                ],
-                "symbol": "niftychain",
-                "strikes": strikes,
-            },
-        },
-        strikes,
-    ]
+from .values import headers, tasks, website
 
 
 def marketstatus():
@@ -82,14 +51,16 @@ def process_opt_data(record, strikes):
                 if data.get("optionType") == "Call":
                     if data.get("strikePrice") == strikes.get("ce_price"):
                         ce_volume = data.get("volume")
+                        ce_oi = data.get("openInterest")
                         break
         for data in record["data"]:
             if data.get("expiryDate") == strikes.get("expiryDate"):
                 if data.get("optionType") == "Put":
                     if data.get("strikePrice") == strikes.get("pe_price"):
                         pe_volume = data.get("volume")
+                        pe_oi = data.get("openInterest")
                         break
-        return (ce_volume, pe_volume)
+        return (ce_volume, pe_volume, ce_oi, pe_oi)
     except Exception as e:
         return None
 
@@ -102,6 +73,7 @@ def process_chain_data(record, strikes):
                     ce_volume = data.get("CE", {"totalTradedVolume": 0})[
                         "totalTradedVolume"
                     ]
+                    ce_oi = data.get("CE", {"openInterest": 0})["openInterest"]
                     break
         for data in record.get("data", []):
             if data.get("expiryDate") == strikes.get("expiryDate"):
@@ -109,8 +81,9 @@ def process_chain_data(record, strikes):
                     pe_volume = data.get("PE", {"totalTradedVolume": 0})[
                         "totalTradedVolume"
                     ]
+                    pe_oi = data.get("PE", {"openInterest": 0})["openInterest"]
                     break
-        return (ce_volume, pe_volume)
+        return (ce_volume, pe_volume, ce_oi, pe_oi)
 
     except Exception as e:
         return None
@@ -153,12 +126,12 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, strikes):
                 if (result := process_chain_data(record, strikes)) == None:
                     print("Exception while processing data for", symbol)
                     continue
-                ce_volume, pe_volume = result
+                ce_volume, pe_volume, ce_oi, pe_oi = result
             else:
                 if (result := process_opt_data(record, strikes)) == None:
                     print("Exception while processing data for", symbol)
                     continue
-                ce_volume, pe_volume = result
+                ce_volume, pe_volume, ce_oi, pe_oi = result
             if ce_volume < 0 or ce_volume in df[f"{symbol}cevolume"].values:
                 continue
             if pe_volume < 0 or pe_volume in df[f"{symbol}pevolume"].values:
@@ -167,7 +140,9 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, strikes):
                 df = df[df["time"] != timestamp]
             sort_csv(df).to_csv(csvfile, index=False)
             with open(csvfile, "a", encoding="utf-8", newline="") as f_name:
-                csv.writer(f_name).writerow([timestamp, ce_volume, pe_volume])
+                csv.writer(f_name).writerow(
+                    [timestamp, ce_volume, pe_volume, ce_oi, pe_oi]
+                )
             df = pd.read_csv(csvfile, skip_blank_lines=True)
             sort_csv(df).to_csv(csvfile, index=False)
             time.sleep(3)
@@ -181,25 +156,17 @@ def get_data(base_url, rest_url, call_headers, csv_columns, symbol, strikes):
 
 
 def main():
-    headers = {
-        "user-agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 "
-            + "Safari/537.36 Edg/108.0.1462.76"
-        ),
-        "accept-language": "en-GB,en;q=0.9,en-US;q=0.8,mr;q=0.7",
-        "accept-encoding": "gzip, deflate, br",
-    }
+
     while marketstatus() == "Closed":
         print("Market is not opened yet!")
         time.sleep(3)
         os.system("clear")
 
     with ThreadPoolExecutor() as executor:
-        for value in tasks()[0].values():
+        for value in tasks.values():
             executor.submit(
                 get_data,
-                "https://www.nseindia.com/",
+                website,
                 value["rest_url"],
                 headers,
                 value["csv_columns"],
